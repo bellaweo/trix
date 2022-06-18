@@ -18,8 +18,9 @@
 !README.md
 !LICENSE
 
-# !Makefile
 !Earthfile
+
+!.envrc
 
 # ...even if they are in subdirectories
 !*/
