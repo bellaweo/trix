@@ -3,6 +3,7 @@ module codeberg.org/meh/trix
 go 1.18
 
 require (
+	github.com/matrix-org/gomatrix v0.0.0-20210324163249-be2af5ef2e16
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.12.0
 )

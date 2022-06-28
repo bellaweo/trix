@@ -40,7 +40,7 @@ func init() {
 	viper.BindPFlag("user", rootCmd.PersistentFlags().Lookup("user"))
 	rootCmd.PersistentFlags().StringVarP(&pass, "pass", "p", viper.GetString("pass"), "matrix password")
 	viper.BindPFlag("pass", rootCmd.PersistentFlags().Lookup("pass"))
-	rootCmd.PersistentFlags().StringVarP(&host, "host", "t", viper.GetString("host"), "matrix hostname")
+	rootCmd.PersistentFlags().StringVarP(&host, "host", "o", viper.GetString("host"), "matrix hostname")
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
 	rootCmd.PersistentFlags().StringVarP(&room, "room", "r", viper.GetString("room"), "matrix roomid")
 	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
