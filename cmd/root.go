@@ -36,43 +36,38 @@ func Execute() {
 func init() {
 	viper.SetEnvPrefix("TRIX")
 	viper.AutomaticEnv()
-	rootCmd.PersistentFlags().StringVarP(&user, "user", "u", viper.GetString("user"), "matrix username")
+	rootCmd.PersistentFlags().StringVarP(&user, "user", "u", viper.GetString("user"), "matrix username. (or env var TRIX_USER.)")
 	viper.BindPFlag("user", rootCmd.PersistentFlags().Lookup("user"))
-	rootCmd.PersistentFlags().StringVarP(&pass, "pass", "p", viper.GetString("pass"), "matrix password")
+	rootCmd.PersistentFlags().StringVarP(&pass, "pass", "p", viper.GetString("pass"), "matrix password. (or env var TRIX_PASS.)")
 	viper.BindPFlag("pass", rootCmd.PersistentFlags().Lookup("pass"))
-	rootCmd.PersistentFlags().StringVarP(&host, "host", "o", viper.GetString("host"), "matrix hostname")
+	rootCmd.PersistentFlags().StringVarP(&host, "host", "o", viper.GetString("host"), "matrix hostname. (or env var TRIX_HOST.)")
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
-	rootCmd.PersistentFlags().StringVarP(&room, "room", "r", viper.GetString("room"), "matrix roomid")
+	rootCmd.PersistentFlags().StringVarP(&room, "room", "r", viper.GetString("room"), "matrix roomid. (or env var TRIX_ROOM.)")
 	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
 }
 
-func vars() {
-
+func vars() (bool, string) {
 	var exit = false
-
+	var text string
 	if len(user) == 0 {
-		fmt.Println("\nmatrix username required.")
-		fmt.Println("set it via the environment variable TRIX_USER or the command line flag --user.")
+		text += "\nERROR: matrix username required.\n"
+		text += "set it via the environment variable TRIX_USER or the command line flag --user.\n"
 		exit = true
 	}
 	if len(pass) == 0 {
-		fmt.Println("\nmatrix password required.")
-		fmt.Println("set it via the environment variable TRIX_PASS or the command line flag --pass.")
+		text += "\nERROR: matrix password required.\n"
+		text += "set it via the environment variable TRIX_PASS or the command line flag --pass.\n"
 		exit = true
 	}
 	if len(host) == 0 {
-		fmt.Println("\nmatrix host required.")
-		fmt.Println("set it via the environment variable TRIX_HOST or the command line flag --host.")
+		text += "\nERROR: matrix host required.\n"
+		text += "set it via the environment variable TRIX_HOST or the command line flag --host.\n"
 		exit = true
 	}
 	if len(room) == 0 {
-		fmt.Println("\nmatrix room required.")
-		fmt.Println("set it via the environment variable TRIX_ROOM or the command line flag --room.")
+		text += "\nERROR: matrix room required.\n"
+		text += "set it via the environment variable TRIX_ROOM or the command line flag --room.\n"
 		exit = true
 	}
-	if exit {
-		fmt.Println("\nrun \"trix help\" for more details")
-		os.Exit(1)
-	}
-
+	return exit, text
 }
