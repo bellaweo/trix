@@ -12,7 +12,7 @@ var (
 	user string // matrix username
 	pass string // matrix password
 	host string // matrix hostname
-	room string // matrix roomid
+	room string // matrix roomid or room alias
 
 	rootCmd = &cobra.Command{
 		Use:   "trix",
@@ -36,13 +36,13 @@ func Execute() {
 func init() {
 	viper.SetEnvPrefix("TRIX")
 	viper.AutomaticEnv()
-	rootCmd.PersistentFlags().StringVarP(&user, "user", "u", viper.GetString("user"), "matrix username. (or env var TRIX_USER.)")
+	rootCmd.PersistentFlags().StringVarP(&user, "user", "u", viper.GetString("user"), "matrix username. (env var TRIX_USER.)")
 	viper.BindPFlag("user", rootCmd.PersistentFlags().Lookup("user"))
-	rootCmd.PersistentFlags().StringVarP(&pass, "pass", "p", viper.GetString("pass"), "matrix password. (or env var TRIX_PASS.)")
+	rootCmd.PersistentFlags().StringVarP(&pass, "pass", "p", viper.GetString("pass"), "matrix password. (env var TRIX_PASS.)")
 	viper.BindPFlag("pass", rootCmd.PersistentFlags().Lookup("pass"))
-	rootCmd.PersistentFlags().StringVarP(&host, "host", "o", viper.GetString("host"), "matrix hostname. (or env var TRIX_HOST.)")
+	rootCmd.PersistentFlags().StringVarP(&host, "host", "o", viper.GetString("host"), "matrix hostname. (env var TRIX_HOST.)")
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
-	rootCmd.PersistentFlags().StringVarP(&room, "room", "r", viper.GetString("room"), "matrix roomid. (or env var TRIX_ROOM.)")
+	rootCmd.PersistentFlags().StringVarP(&room, "room", "r", viper.GetString("room"), "matrix roomid or alias. (env var TRIX_ROOM.)")
 	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
 }
 

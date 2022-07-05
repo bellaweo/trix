@@ -3,6 +3,7 @@ module codeberg.org/meh/trix
 go 1.18
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.12.0
 	maunium.net/go/mautrix v0.11.0

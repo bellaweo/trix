@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	trix "codeberg.org/meh/trix/matrix"
 	"github.com/spf13/cobra"
 	"maunium.net/go/mautrix"
-	"maunium.net/go/mautrix/crypto"
 	"maunium.net/go/mautrix/event"
-	"maunium.net/go/mautrix/id"
 )
 
 var (
@@ -26,60 +25,107 @@ var (
 				os.Exit(1)
 			}
 
-			client, err := mautrix.NewClient(host, "", "")
-			if err != nil {
-				panic(err)
-			}
-			_, err = client.Login(&mautrix.ReqLogin{
-				Type:                     "m.login.password",
-				Identifier:               mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: user},
-				Password:                 pass,
-				InitialDeviceDisplayName: "trix",
-				StoreCredentials:         true,
-			})
-			if err != nil {
-				panic(err)
-			}
+			var out trix.MaTrix
+			out.Client = trix.MaLogin(host, user, pass, room)
+			out.DBstore = trix.MaDB(out.Client, user, host)
+			out.Olm = trix.MaOlm(out.Client, out.DBstore)
 
-			// Create a store for the e2ee keys. In real apps, use NewSQLCryptoStore instead of NewGobStore.
-			cryptoStore, err := crypto.NewGobStore("test.gob")
-			if err != nil {
-				panic(err)
-			}
+			//client, err := mautrix.NewClient(host, "", "")
+			//if err != nil {
+			//	panic(err)
+			//}
+			//_, err = client.Login(&mautrix.ReqLogin{
+			//	Type:                     "m.login.password",
+			//	Identifier:               mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: user},
+			//	Password:                 pass,
+			//	InitialDeviceDisplayName: "trix",
+			//	StoreCredentials:         true,
+			//})
+			//if err != nil {
+			//	panic(err)
+			//}
+			//rm := id.RoomID(room)
+			//_, err = client.JoinRoomByID(rm)
+			//if err != nil {
+			//	panic(err)
+			//}
 
-			mach := crypto.NewOlmMachine(client, &fakeLogger{}, cryptoStore, &fakeStateStore{})
+			// Create a store for the e2ee keys.
+			//_, err = os.Create(filepath.Join(os.Getenv("HOME"), "tmp", "out.db"))
+			//if err != nil {
+			//	panic(err)
+			//}
+			//db, err := sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", "out.db"))
+			//if err != nil {
+			//	panic(err)
+			//}
+
+			//acct := userToAccount(user, host)
+			//pickleKey := []byte("trix_is_for_kids")
+			//cryptoStore := crypto.NewSQLCryptoStore(db, "sqlite3", acct, client.DeviceID, pickleKey, &fakeLogger{})
+
+			//err = cryptoStore.CreateTables()
+			//if err != nil {
+			//	panic(err)
+			//}
+
+			//mach := crypto.NewOlmMachine(out.Client, &fakeLogger{}, out.DBStore, &fakeStateStore{})
+			//mach.AllowUnverifiedDevices = false
+			//mach.ShareKeysToUnverifiedDevices = false
 			// Load data from the crypto store
-			err = mach.Load()
-			if err != nil {
-				panic(err)
-			}
+			//err = mach.Load()
+			//if err != nil {
+			//	panic(err)
+			//}
+
+			// load room devices into cryptoStore
+			//for _, self := range getUserIDs(client, rm) {
+			//	mach.LoadDevices(self)
+			//}
 
 			// Hook up the OlmMachine into the Matrix client so it receives e2ee keys and other such things.
-			syncer := client.Syncer.(*mautrix.DefaultSyncer)
+			syncer := out.Client.Syncer.(*mautrix.DefaultSyncer)
 			syncer.OnSync(func(resp *mautrix.RespSync, since string) bool {
-				mach.ProcessSyncResponse(resp, since)
+				out.Olm.ProcessSyncResponse(resp, since)
 				return true
 			})
 			syncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
-				mach.HandleMemberEvent(evt)
+				out.Olm.HandleMemberEvent(evt)
 			})
 
 			// Start long polling in the background
 			go func() {
-				err = client.Sync()
+				err := out.Client.Sync()
 				if err != nil {
 					panic(err)
 				}
 			}()
 
-			rm := id.RoomID(room)
+			resp := trix.SendEncrypted(out.Client, out.Olm, room, text)
+			fmt.Printf("%v\n", resp)
 
-			go sendEncrypted(mach, client, rm, text)
+			//content := event.MessageEventContent{
+			//	MsgType: "m.text",
+			//	Body:    text,
+			//}
+			//encrypted, err := mach.EncryptMegolmEvent(rm, event.EventMessage, content)
+			// These three errors mean we have to make a new Megolm session
+			//if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {
+			//	err = mach.ShareGroupSession(rm, getUserIDs(client, rm))
+			//	if err != nil {
+			//		panic(err)
+			//	}
+			//	encrypted, err = mach.EncryptMegolmEvent(rm, event.EventMessage, content)
+			//	if err != nil {
+			//		panic(err)
+			//	}
+			//}
+			//_, err = client.SendMessageEvent(rm, event.EventEncrypted, encrypted)
+			//if err != nil {
+			//	panic(err)
+			//}
 
-			_, err = client.Logout()
-			if err != nil {
-				panic(err)
-			}
+			//go sendEncrypted(mach, client, cryptoStore, rm, text)
 
 		},
 	}
