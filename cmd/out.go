@@ -17,17 +17,18 @@ var (
 		Use:   "out",
 		Short: "send text to the matrix channel",
 		Long:  `send string output to the matrix channel`,
-		Run: func(cmd *cobra.Command, args []string) {
-			ut, us := vars()
-			if ut {
+		PreRun: func(cmd *cobra.Command, args []string) {
+			t := root.rootVarsPresent()
+			if len(t) > 0 {
 				cmd.Help()
-				fmt.Print(us)
+				fmt.Printf("%s\n", t)
 				os.Exit(1)
 			}
-
+		},
+		Run: func(cmd *cobra.Command, args []string) {
 			var out trix.MaTrix
-			out.MaLogin(host, user, pass, room)
-			out.MaDBopen(user, host)
+			out.MaLogin(root.Host, root.User, root.Pass, root.Room)
+			out.MaDBopen(root.User, root.Host)
 			out.MaOlm()
 
 			defer func() {
@@ -54,7 +55,7 @@ var (
 				}
 			}()
 
-			resp := out.SendEncrypted(room, text)
+			resp := out.SendEncrypted(root.Room, text)
 			fmt.Printf("%v\n", resp)
 
 		},

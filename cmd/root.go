@@ -3,16 +3,22 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"reflect"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+type rootVars struct {
+	User string // matrix username
+	Pass string // matrix password
+	Host string // matrix hostname
+	Room string // matrix roomid or room alias
+}
+
 var (
-	user string // matrix username
-	pass string // matrix password
-	host string // matrix hostname
-	room string // matrix roomid or room alias
+	root rootVars
 
 	rootCmd = &cobra.Command{
 		Use:   "trix",
@@ -36,38 +42,25 @@ func Execute() {
 func init() {
 	viper.SetEnvPrefix("TRIX")
 	viper.AutomaticEnv()
-	rootCmd.PersistentFlags().StringVarP(&user, "user", "u", viper.GetString("user"), "matrix username. (env var TRIX_USER.)")
+	rootCmd.PersistentFlags().StringVarP(&root.User, "user", "u", viper.GetString("user"), "matrix username. (env var TRIX_USER.)")
 	viper.BindPFlag("user", rootCmd.PersistentFlags().Lookup("user"))
-	rootCmd.PersistentFlags().StringVarP(&pass, "pass", "p", viper.GetString("pass"), "matrix password. (env var TRIX_PASS.)")
+	rootCmd.PersistentFlags().StringVarP(&root.Pass, "pass", "p", viper.GetString("pass"), "matrix password. (env var TRIX_PASS.)")
 	viper.BindPFlag("pass", rootCmd.PersistentFlags().Lookup("pass"))
-	rootCmd.PersistentFlags().StringVarP(&host, "host", "o", viper.GetString("host"), "matrix hostname. (env var TRIX_HOST.)")
+	rootCmd.PersistentFlags().StringVarP(&root.Host, "host", "o", viper.GetString("host"), "matrix hostname. (env var TRIX_HOST.)")
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
-	rootCmd.PersistentFlags().StringVarP(&room, "room", "r", viper.GetString("room"), "matrix roomid or alias. (env var TRIX_ROOM.)")
+	rootCmd.PersistentFlags().StringVarP(&root.Room, "room", "r", viper.GetString("room"), "matrix roomid or alias. (env var TRIX_ROOM.)")
 	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
 }
 
-func vars() (bool, string) {
-	var exit = false
+func (r rootVars) rootVarsPresent() string {
 	var text string
-	if len(user) == 0 {
-		text += "\nERROR: matrix username required.\n"
-		text += "set it via the environment variable TRIX_USER or the command line flag --user.\n"
-		exit = true
+	v := reflect.ValueOf(r)
+	typeOfR := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		if len(v.Field(i).Interface().(string)) == 0 {
+			text += fmt.Sprintf("\nERROR: matrix flag %s required.\n", strings.ToLower(typeOfR.Field(i).Name))
+			text += fmt.Sprintf("set it via the environment variable TRIX_%s or the command line flag --%s.\n", strings.ToUpper(typeOfR.Field(i).Name), strings.ToLower(typeOfR.Field(i).Name))
+		}
 	}
-	if len(pass) == 0 {
-		text += "\nERROR: matrix password required.\n"
-		text += "set it via the environment variable TRIX_PASS or the command line flag --pass.\n"
-		exit = true
-	}
-	if len(host) == 0 {
-		text += "\nERROR: matrix host required.\n"
-		text += "set it via the environment variable TRIX_HOST or the command line flag --host.\n"
-		exit = true
-	}
-	if len(room) == 0 {
-		text += "\nERROR: matrix room required.\n"
-		text += "set it via the environment variable TRIX_ROOM or the command line flag --room.\n"
-		exit = true
-	}
-	return exit, text
+	return text
 }
