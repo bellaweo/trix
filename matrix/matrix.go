@@ -1,4 +1,4 @@
-// Package matrix this cli cobra/viper configuration
+// Package matrix
 // much of this encryption code is lifted with much respect and admiration to its author
 // https://mau.dev/-/snippets/6
 package matrix
@@ -24,6 +24,9 @@ type MaTrix struct {
 	Client  *mautrix.Client
 	DBstore *crypto.SQLCryptoStore
 	Olm     *crypto.OlmMachine
+
+	db   *sql.DB
+	file string
 }
 
 // user full account name. i.e. @<user>:<host>
@@ -46,12 +49,13 @@ func toRoomID(cli *mautrix.Client, room string) (id.RoomID, bool) {
 }
 
 // MaLogin client login to matrix & join room
-func MaLogin(host string, user string, pass string, room string) *mautrix.Client {
-	client, err := mautrix.NewClient(host, "", "")
+func (t *MaTrix) MaLogin(host string, user string, pass string, room string) {
+	var err error
+	t.Client, err = mautrix.NewClient(host, "", "")
 	if err != nil {
 		panic(err)
 	}
-	_, err = client.Login(&mautrix.ReqLogin{
+	_, err = t.Client.Login(&mautrix.ReqLogin{
 		Type:                     "m.login.password",
 		Identifier:               mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: user},
 		Password:                 pass,
@@ -61,13 +65,20 @@ func MaLogin(host string, user string, pass string, room string) *mautrix.Client
 	if err != nil {
 		panic(err)
 	}
-	rm, _ := toRoomID(client, room)
-	_, err = client.JoinRoomByID(rm)
+	rm, _ := toRoomID(t.Client, room)
+	_, err = t.Client.JoinRoomByID(rm)
 	if err != nil {
 		panic(err)
 	}
-	//defer client.Logout()
-	return client
+}
+
+// MaLogout func
+func (t *MaTrix) MaLogout() *mautrix.RespLogout {
+	resp, err := t.Client.Logout()
+	if err != nil {
+		panic(err)
+	}
+	return resp
 }
 
 func randString(length int) string {
@@ -81,35 +92,44 @@ func randString(length int) string {
 	return string(ran)
 }
 
-// MaDB matrix SQL store
-func MaDB(cli *mautrix.Client, user string, host string) *crypto.SQLCryptoStore {
-	file := fmt.Sprintf("trix.%s", randString(4))
+// MaDBopen matrix SQL store
+func (t *MaTrix) MaDBopen(user string, host string) {
+	t.file = fmt.Sprintf("trix.%s", randString(4))
 	// Log Debug print filename
-	fmt.Println(file)
+	fmt.Println(t.file)
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
 		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
 		if err != nil {
 			panic(err)
 		}
 	}
-	_, err := os.Create(filepath.Join(os.Getenv("HOME"), "tmp", file))
+	_, err := os.Create(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
 		panic(err)
 	}
-	db, err := sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", file))
+	t.db, err = sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
 		panic(err)
 	}
 	acct := toAccount(user, host)
 	pickleKey := []byte("trix_is_for_kids")
-	cryptoStore := crypto.NewSQLCryptoStore(db, "sqlite3", acct, cli.DeviceID, pickleKey, &fakeLogger{})
-	err = cryptoStore.CreateTables()
+	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
+	err = t.DBstore.CreateTables()
 	if err != nil {
 		panic(err)
 	}
-	//defer os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", file))
-	//defer db.Close()
-	return cryptoStore
+}
+
+//MaDBclose func
+func (t *MaTrix) MaDBclose() {
+	err := os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
+	if err != nil {
+		panic(err)
+	}
+	err = t.db.Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Simple crypto.StateStore implementation that says all rooms are encrypted.
@@ -160,16 +180,15 @@ func (f fakeLogger) Trace(message string, args ...interface{}) {
 }
 
 // MaOlm olm machine
-func MaOlm(cli *mautrix.Client, store *crypto.SQLCryptoStore) *crypto.OlmMachine {
-	mach := crypto.NewOlmMachine(cli, &fakeLogger{}, store, &fakeStateStore{})
-	mach.AllowUnverifiedDevices = false
-	mach.ShareKeysToUnverifiedDevices = false
+func (t *MaTrix) MaOlm() {
+	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
+	t.Olm.AllowUnverifiedDevices = false
+	t.Olm.ShareKeysToUnverifiedDevices = false
 	// Load data from the crypto store
-	err := mach.Load()
+	err := t.Olm.Load()
 	if err != nil {
 		panic(err)
 	}
-	return mach
 }
 
 // Easy way to get room members (to find out who to share keys to).
@@ -189,25 +208,25 @@ func getUserIDs(cli *mautrix.Client, roomID id.RoomID) []id.UserID {
 }
 
 // SendEncrypted func
-func SendEncrypted(cli *mautrix.Client, mach *crypto.OlmMachine, room string, text string) id.EventID {
+func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
 	content := event.MessageEventContent{
 		MsgType: "m.text",
 		Body:    text,
 	}
-	rm, _ := toRoomID(cli, room)
-	encrypted, err := mach.EncryptMegolmEvent(rm, event.EventMessage, content)
+	rm, _ := toRoomID(t.Client, room)
+	encrypted, err := t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
 	// These three errors mean we have to make a new Megolm session
 	if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {
-		err = mach.ShareGroupSession(rm, getUserIDs(cli, rm))
+		err = t.Olm.ShareGroupSession(rm, getUserIDs(t.Client, rm))
 		if err != nil {
 			panic(err)
 		}
-		encrypted, err = mach.EncryptMegolmEvent(rm, event.EventMessage, content)
+		encrypted, err = t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
 		if err != nil {
 			panic(err)
 		}
 	}
-	resp, err := cli.SendMessageEvent(rm, event.EventEncrypted, encrypted)
+	resp, err := t.Client.SendMessageEvent(rm, event.EventEncrypted, encrypted)
 	if err != nil {
 		panic(err)
 	}

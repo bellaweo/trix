@@ -26,62 +26,15 @@ var (
 			}
 
 			var out trix.MaTrix
-			out.Client = trix.MaLogin(host, user, pass, room)
-			out.DBstore = trix.MaDB(out.Client, user, host)
-			out.Olm = trix.MaOlm(out.Client, out.DBstore)
+			out.MaLogin(host, user, pass, room)
+			out.MaDBopen(user, host)
+			out.MaOlm()
 
-			//client, err := mautrix.NewClient(host, "", "")
-			//if err != nil {
-			//	panic(err)
-			//}
-			//_, err = client.Login(&mautrix.ReqLogin{
-			//	Type:                     "m.login.password",
-			//	Identifier:               mautrix.UserIdentifier{Type: mautrix.IdentifierTypeUser, User: user},
-			//	Password:                 pass,
-			//	InitialDeviceDisplayName: "trix",
-			//	StoreCredentials:         true,
-			//})
-			//if err != nil {
-			//	panic(err)
-			//}
-			//rm := id.RoomID(room)
-			//_, err = client.JoinRoomByID(rm)
-			//if err != nil {
-			//	panic(err)
-			//}
-
-			// Create a store for the e2ee keys.
-			//_, err = os.Create(filepath.Join(os.Getenv("HOME"), "tmp", "out.db"))
-			//if err != nil {
-			//	panic(err)
-			//}
-			//db, err := sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", "out.db"))
-			//if err != nil {
-			//	panic(err)
-			//}
-
-			//acct := userToAccount(user, host)
-			//pickleKey := []byte("trix_is_for_kids")
-			//cryptoStore := crypto.NewSQLCryptoStore(db, "sqlite3", acct, client.DeviceID, pickleKey, &fakeLogger{})
-
-			//err = cryptoStore.CreateTables()
-			//if err != nil {
-			//	panic(err)
-			//}
-
-			//mach := crypto.NewOlmMachine(out.Client, &fakeLogger{}, out.DBStore, &fakeStateStore{})
-			//mach.AllowUnverifiedDevices = false
-			//mach.ShareKeysToUnverifiedDevices = false
-			// Load data from the crypto store
-			//err = mach.Load()
-			//if err != nil {
-			//	panic(err)
-			//}
-
-			// load room devices into cryptoStore
-			//for _, self := range getUserIDs(client, rm) {
-			//	mach.LoadDevices(self)
-			//}
+			defer func() {
+				resp := out.MaLogout()
+				fmt.Printf("logout %v\n", resp)
+				out.MaDBclose()
+			}()
 
 			// Hook up the OlmMachine into the Matrix client so it receives e2ee keys and other such things.
 			syncer := out.Client.Syncer.(*mautrix.DefaultSyncer)
@@ -101,31 +54,8 @@ var (
 				}
 			}()
 
-			resp := trix.SendEncrypted(out.Client, out.Olm, room, text)
+			resp := out.SendEncrypted(room, text)
 			fmt.Printf("%v\n", resp)
-
-			//content := event.MessageEventContent{
-			//	MsgType: "m.text",
-			//	Body:    text,
-			//}
-			//encrypted, err := mach.EncryptMegolmEvent(rm, event.EventMessage, content)
-			// These three errors mean we have to make a new Megolm session
-			//if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {
-			//	err = mach.ShareGroupSession(rm, getUserIDs(client, rm))
-			//	if err != nil {
-			//		panic(err)
-			//	}
-			//	encrypted, err = mach.EncryptMegolmEvent(rm, event.EventMessage, content)
-			//	if err != nil {
-			//		panic(err)
-			//	}
-			//}
-			//_, err = client.SendMessageEvent(rm, event.EventEncrypted, encrypted)
-			//if err != nil {
-			//	panic(err)
-			//}
-
-			//go sendEncrypted(mach, client, cryptoStore, rm, text)
 
 		},
 	}
