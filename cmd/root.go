@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -52,6 +53,36 @@ func init() {
 	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
 }
 
+func validateHost(host string) string {
+	var text string
+	_, err := url.ParseRequestURI(host)
+	if err != nil {
+		text = fmt.Sprintf("\nERROR: matrix flag host format not valid. %v.\n", err)
+		return text
+	}
+	u, err := url.Parse(host)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		text = fmt.Sprintf("\nERROR: matrix flag host format not valid. %v.\n", err)
+		return text
+	}
+	return text
+}
+
+func validateRoom(room string, host string) string {
+	var text string
+	u := strings.Split(host, "//")[1]
+	suffix := fmt.Sprintf(":%s", u)
+	if !(strings.HasSuffix(room, suffix)) {
+		text = "\nERROR: matrix flag room format is not valid. missing matrix hostname.\n"
+		return text
+	}
+	if !(strings.HasPrefix(room, "#")) && !(strings.HasPrefix(room, "!")) {
+		text = "\nERROR: matrix flag room format is not valid. missing room/alias prefix.\n"
+		return text
+	}
+	return text
+}
+
 func (r rootVars) rootVarsPresent() string {
 	var text string
 	v := reflect.ValueOf(r)
@@ -61,6 +92,12 @@ func (r rootVars) rootVarsPresent() string {
 			text += fmt.Sprintf("\nERROR: matrix flag %s required.\n", strings.ToLower(typeOfR.Field(i).Name))
 			text += fmt.Sprintf("set it via the environment variable TRIX_%s or the command line flag --%s.\n", strings.ToUpper(typeOfR.Field(i).Name), strings.ToLower(typeOfR.Field(i).Name))
 		}
+	}
+	if len(r.Host) > 0 {
+		text += validateHost(r.Host)
+	}
+	if len(r.Room) > 0 {
+		text += validateRoom(r.Room, r.Host)
 	}
 	return text
 }
