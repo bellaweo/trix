@@ -1,6 +1,4 @@
-// Package matrix
-// much of this encryption code is lifted with much respect and admiration to its author
-// https://mau.dev/-/snippets/6
+// Package matrix helpful functions for repetitive tasks in the mautrix go module
 package matrix
 
 import (
@@ -19,7 +17,7 @@ import (
 	"maunium.net/go/mautrix/id"
 )
 
-// MaTrix struct
+// MaTrix struct to hold our objects
 type MaTrix struct {
 	Client  *mautrix.Client
 	DBstore *crypto.SQLCryptoStore
@@ -35,17 +33,17 @@ func toAccount(user string, host string) string {
 	return fmt.Sprintf("@%s:%s", user, url)
 }
 
-// convert matrix rooim alias to roomID
-func toRoomID(cli *mautrix.Client, room string) (id.RoomID, bool) {
+// convert matrix rooim alias to roomID. or convert room string to RoomID type.
+func toRoomID(cli *mautrix.Client, room string) id.RoomID {
 	if strings.HasPrefix(room, "#") {
 		a := id.RoomAlias(room)
 		rm, err := cli.ResolveAlias(a)
 		if err != nil {
 			panic(err)
 		}
-		return rm.RoomID, true
+		return rm.RoomID
 	}
-	return id.RoomID(room), false
+	return id.RoomID(room)
 }
 
 // MaLogin client login to matrix & join room
@@ -65,14 +63,14 @@ func (t *MaTrix) MaLogin(host string, user string, pass string, room string) {
 	if err != nil {
 		panic(err)
 	}
-	rm, _ := toRoomID(t.Client, room)
+	rm := toRoomID(t.Client, room)
 	_, err = t.Client.JoinRoomByID(rm)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// MaLogout func
+// MaLogout matrix client logout
 func (t *MaTrix) MaLogout() *mautrix.RespLogout {
 	resp, err := t.Client.Logout()
 	if err != nil {
@@ -81,6 +79,7 @@ func (t *MaTrix) MaLogout() *mautrix.RespLogout {
 	return resp
 }
 
+// return a random string of fixed length characters
 func randString(length int) string {
 	rand.Seed(time.Now().Unix())
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -92,7 +91,7 @@ func randString(length int) string {
 	return string(ran)
 }
 
-// MaDBopen matrix SQL store
+// MaDBopen create matrix SQL cryptostore
 func (t *MaTrix) MaDBopen(user string, host string) {
 	t.file = fmt.Sprintf("trix.%s", randString(4))
 	// Log Debug print filename
@@ -120,7 +119,7 @@ func (t *MaTrix) MaDBopen(user string, host string) {
 	}
 }
 
-//MaDBclose func
+//MaDBclose delete matrix SQL cryptostore
 func (t *MaTrix) MaDBclose() {
 	err := os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
@@ -132,7 +131,7 @@ func (t *MaTrix) MaDBclose() {
 	}
 }
 
-// Simple crypto.StateStore implementation that says all rooms are encrypted.
+// crypto.StateStore implementation that says all rooms are encrypted.
 type fakeStateStore struct{}
 
 var _ crypto.StateStore = &fakeStateStore{}
@@ -153,7 +152,7 @@ func (fss *fakeStateStore) FindSharedRooms(userID id.UserID) []id.RoomID {
 	return []id.RoomID{}
 }
 
-// Simple crypto.Logger implementation that just prints to stdout.
+// crypto.Logger implementation that just prints to stdout.
 type fakeLogger struct{}
 
 var _ crypto.Logger = &fakeLogger{}
@@ -179,7 +178,7 @@ func (f fakeLogger) Trace(message string, args ...interface{}) {
 	fmt.Printf("[TRACE] "+message+"\n", args...)
 }
 
-// MaOlm olm machine
+// MaOlm create olm machine
 func (t *MaTrix) MaOlm() {
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
 	t.Olm.AllowUnverifiedDevices = false
@@ -191,8 +190,7 @@ func (t *MaTrix) MaOlm() {
 	}
 }
 
-// Easy way to get room members (to find out who to share keys to).
-// In real apps, you should cache the member list somewhere and update it based on m.room.member events.
+// get members of a room
 func getUserIDs(cli *mautrix.Client, roomID id.RoomID) []id.UserID {
 	members, err := cli.JoinedMembers(roomID)
 	if err != nil {
@@ -207,13 +205,13 @@ func getUserIDs(cli *mautrix.Client, roomID id.RoomID) []id.UserID {
 	return userIDs
 }
 
-// SendEncrypted func
+// SendEncrypted text to a room
 func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
 	content := event.MessageEventContent{
-		MsgType: "m.text",
+		MsgType: "m.notice",
 		Body:    text,
 	}
-	rm, _ := toRoomID(t.Client, room)
+	rm := toRoomID(t.Client, room)
 	encrypted, err := t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
 	// These three errors mean we have to make a new Megolm session
 	if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {

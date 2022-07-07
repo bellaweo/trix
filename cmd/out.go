@@ -18,6 +18,7 @@ var (
 		Short: "send text to the matrix channel",
 		Long:  `send string output to the matrix channel`,
 		PreRun: func(cmd *cobra.Command, args []string) {
+			// validate flags & values
 			t := root.rootVarsPresent()
 			if len(t) > 0 {
 				cmd.Help()
@@ -26,18 +27,23 @@ var (
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			// initialize matrix struct
 			var out trix.MaTrix
+			// login to matrix host
 			out.MaLogin(root.Host, root.User, root.Pass, root.Room)
+			// create sql cryptostore
 			out.MaDBopen(root.User, root.Host)
+			// create olm machine
 			out.MaOlm()
 
+			// defer logout and dbclose til cli exits
 			defer func() {
 				resp := out.MaLogout()
 				fmt.Printf("logout %v\n", resp)
 				out.MaDBclose()
 			}()
 
-			// Hook up the OlmMachine into the Matrix client so it receives e2ee keys and other such things.
+			// initialize matrix syncer & add our olm machine
 			syncer := out.Client.Syncer.(*mautrix.DefaultSyncer)
 			syncer.OnSync(func(resp *mautrix.RespSync, since string) bool {
 				out.Olm.ProcessSyncResponse(resp, since)
@@ -47,7 +53,7 @@ var (
 				out.Olm.HandleMemberEvent(evt)
 			})
 
-			// Start long polling in the background
+			// start polling in the background
 			go func() {
 				err := out.Client.Sync()
 				if err != nil {
@@ -55,8 +61,9 @@ var (
 				}
 			}()
 
+			// send encrypted message
 			resp := out.SendEncrypted(root.Room, text)
-			fmt.Printf("%v\n", resp)
+			fmt.Printf("Sent Message EventID %v\n", resp)
 
 		},
 	}

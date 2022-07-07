@@ -1,3 +1,4 @@
+// Package cmd trix implementation of cobra/viper
 package cmd
 
 import (
