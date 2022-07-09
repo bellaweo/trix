@@ -5,6 +5,8 @@ import (
 	"os"
 
 	trix "codeberg.org/meh/trix/matrix"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
@@ -18,6 +20,11 @@ var (
 		Short: "send text to the matrix channel",
 		Long:  `send string output to the matrix channel`,
 		PreRun: func(cmd *cobra.Command, args []string) {
+			// Default level is info, unless debug flag is present
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+			if debug {
+				zerolog.SetGlobalLevel(zerolog.TraceLevel)
+			}
 			// validate flags & values
 			t := root.rootVarsPresent()
 			if len(t) > 0 {
@@ -39,7 +46,7 @@ var (
 			// defer logout and dbclose til cli exits
 			defer func() {
 				resp := out.MaLogout()
-				fmt.Printf("logout %v\n", resp)
+				log.Debug().Msgf("logout %v\n", resp)
 				out.MaDBclose()
 			}()
 
@@ -63,7 +70,7 @@ var (
 
 			// send encrypted message
 			resp := out.SendEncrypted(root.Room, text)
-			fmt.Printf("Sent Message EventID %v\n", resp)
+			log.Debug().Msgf("Sent Message EventID %v\n", resp)
 
 		},
 	}

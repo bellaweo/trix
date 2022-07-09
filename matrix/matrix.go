@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // comment
+	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
 	"maunium.net/go/mautrix/event"
@@ -94,8 +95,7 @@ func randString(length int) string {
 // MaDBopen create matrix SQL cryptostore
 func (t *MaTrix) MaDBopen(user string, host string) {
 	t.file = fmt.Sprintf("trix.%s", randString(4))
-	// Log Debug print filename
-	fmt.Println(t.file)
+	log.Debug().Msgf("sql cryptostore db file: %v", t.file)
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
 		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
 		if err != nil {
@@ -158,24 +158,30 @@ type fakeLogger struct{}
 var _ crypto.Logger = &fakeLogger{}
 
 func (f fakeLogger) Error(message string, args ...interface{}) {
-	fmt.Printf("[ERROR] "+message+"\n", args...)
+	//fmt.Printf("[ERROR] "+message+"\n", args...)
+	if message == "Error while verifying cross-signing keys: the input base64 was invalid" {
+		return
+	}
+	log.Error().Msgf(message, args...)
 }
 
-//Log Debug below
-
 func (f fakeLogger) Warn(message string, args ...interface{}) {
-	fmt.Printf("[WARN] "+message+"\n", args...)
+	//fmt.Printf("[WARN] "+message+"\n", args...)
+	log.Warn().Msgf(message, args...)
 }
 
 func (f fakeLogger) Debug(message string, args ...interface{}) {
-	fmt.Printf("[DEBUG] "+message+"\n", args...)
+	//fmt.Printf("[DEBUG] "+message+"\n", args...)
+	log.Debug().Msgf(message, args...)
+
 }
 
 func (f fakeLogger) Trace(message string, args ...interface{}) {
-	if strings.HasPrefix(message, "Got membership state event") {
-		return
-	}
-	fmt.Printf("[TRACE] "+message+"\n", args...)
+	//if strings.HasPrefix(message, "Got membership state event") {
+	//	return
+	//}
+	//fmt.Printf("[TRACE] "+message+"\n", args...)
+	log.Trace().Msgf(message, args...)
 }
 
 // MaOlm create olm machine

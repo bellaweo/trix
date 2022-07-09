@@ -20,7 +20,8 @@ type rootVars struct {
 }
 
 var (
-	root rootVars
+	root  rootVars
+	debug bool
 
 	rootCmd = &cobra.Command{
 		Use:   "trix",
@@ -52,6 +53,8 @@ func init() {
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
 	rootCmd.PersistentFlags().StringVarP(&root.Room, "room", "r", viper.GetString("room"), "matrix roomid or alias. (env var TRIX_ROOM.)")
 	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
+	rootCmd.PersistentFlags().BoolVarP(&debug, "verbose", "v", false, "enable verbose mode.")
+	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 }
 
 func validateHost(host string) string {
