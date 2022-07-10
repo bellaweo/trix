@@ -1,3 +1,5 @@
+[![status-badge](https://ci.codeberg.org/api/badges/meh/trix/status.svg)](https://ci.codeberg.org/meh/trix)
+
 # trix
 
 A matrix cli for performing one-off tasks.
