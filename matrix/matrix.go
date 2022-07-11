@@ -48,7 +48,7 @@ func toRoomID(cli *mautrix.Client, room string) id.RoomID {
 }
 
 // MaLogin client login to matrix & join room
-func (t *MaTrix) MaLogin(host string, user string, pass string, room string) {
+func (t *MaTrix) MaLogin(host string, user string, pass string) {
 	var err error
 	t.Client, err = mautrix.NewClient(host, "", "")
 	if err != nil {
@@ -64,8 +64,12 @@ func (t *MaTrix) MaLogin(host string, user string, pass string, room string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// MaJoinRoom to join a room
+func (t *MaTrix) MaJoinRoom(room string) {
 	rm := toRoomID(t.Client, room)
-	_, err = t.Client.JoinRoomByID(rm)
+	_, err := t.Client.JoinRoomByID(rm)
 	if err != nil {
 		panic(err)
 	}

@@ -37,7 +37,9 @@ var (
 			// initialize matrix struct
 			var out trix.MaTrix
 			// login to matrix host
-			out.MaLogin(root.Host, root.User, root.Pass, root.Room)
+			out.MaLogin(root.Host, root.User, root.Pass)
+			// join the matrix room
+			out.MaJoinRoom(root.Room)
 			// create sql cryptostore
 			out.MaDBopen(root.User, root.Host)
 			// create olm machine
