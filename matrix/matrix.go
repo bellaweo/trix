@@ -125,13 +125,15 @@ func (t *MaTrix) MaDBopen(user string, host string) {
 
 //MaDBclose delete matrix SQL cryptostore
 func (t *MaTrix) MaDBclose() {
-	err := os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
+	err := t.db.Close()
 	if err != nil {
 		panic(err)
 	}
-	err = t.db.Close()
-	if err != nil {
-		panic(err)
+	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp", t.file)); err == nil {
+		err = os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -191,12 +193,18 @@ func (f fakeLogger) Trace(message string, args ...interface{}) {
 // MaOlm create olm machine
 func (t *MaTrix) MaOlm() {
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
-	t.Olm.AllowUnverifiedDevices = false
+	t.Olm.AllowUnverifiedDevices = true
 	t.Olm.ShareKeysToUnverifiedDevices = false
 	// Load data from the crypto store
 	err := t.Olm.Load()
 	if err != nil {
 		panic(err)
+	}
+	if t.Olm.CrossSigningKeys == nil {
+		t.Olm.CrossSigningKeys, err = t.Olm.GenerateCrossSigningKeys()
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
