@@ -66,13 +66,14 @@ var (
 			go func() {
 				err := out.Client.Sync()
 				if err != nil {
-					panic(err)
+					log.Error().Msgf("Error syncing trix client %s to matrix host: %v", root.User, err)
+					os.Exit(1)
 				}
 			}()
 
 			// send encrypted message
 			resp := out.SendEncrypted(root.Room, text)
-			log.Debug().Msgf("Sent Message EventID %v\n", resp)
+			log.Debug().Msgf("Sent Message from %s to room %s EventID %v\n", root.User, root.Room, resp)
 
 		},
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // comment
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
@@ -40,7 +41,8 @@ func toRoomID(cli *mautrix.Client, room string) id.RoomID {
 		a := id.RoomAlias(room)
 		rm, err := cli.ResolveAlias(a)
 		if err != nil {
-			panic(err)
+			log.Error().Msgf("Error resolving alias to room %s: %v", room, err)
+			os.Exit(1)
 		}
 		return rm.RoomID
 	}
@@ -52,7 +54,8 @@ func (t *MaTrix) MaLogin(host string, user string, pass string) {
 	var err error
 	t.Client, err = mautrix.NewClient(host, "", "")
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error creating new matrix client for user %s: %v", user, err)
+		os.Exit(1)
 	}
 	_, err = t.Client.Login(&mautrix.ReqLogin{
 		Type:                     "m.login.password",
@@ -62,7 +65,8 @@ func (t *MaTrix) MaLogin(host string, user string, pass string) {
 		StoreCredentials:         true,
 	})
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error matrix client login user %s: %v", user, err)
+		os.Exit(1)
 	}
 }
 
@@ -71,7 +75,8 @@ func (t *MaTrix) MaJoinRoom(room string) {
 	rm := toRoomID(t.Client, room)
 	_, err := t.Client.JoinRoomByID(rm)
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error user %s joining room %s: %v", t.Client.UserID, room, err)
+		os.Exit(1)
 	}
 }
 
@@ -79,7 +84,8 @@ func (t *MaTrix) MaJoinRoom(room string) {
 func (t *MaTrix) MaLogout() *mautrix.RespLogout {
 	resp, err := t.Client.Logout()
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error user %s logout: %v", t.Client.UserID, err)
+		os.Exit(1)
 	}
 	return resp
 }
@@ -99,27 +105,31 @@ func randString(length int) string {
 // MaDBopen create matrix SQL cryptostore
 func (t *MaTrix) MaDBopen(user string, host string) {
 	t.file = fmt.Sprintf("trix.%s", randString(4))
-	log.Debug().Msgf("sql cryptostore db file: %v", t.file)
+	log.Debug().Msgf("SQL cryptostore db file for user %s: %v", user, t.file)
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
 		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
 		if err != nil {
-			panic(err)
+			log.Error().Msgf("Error creating directory ~/tmpi: %v", err)
+			os.Exit(1)
 		}
 	}
 	_, err := os.Create(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error creating file ~/tmp/%s for user %s: %v", t.file, user, err)
+		os.Exit(1)
 	}
 	t.db, err = sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error opening sql db ~/tmp/%s for user %s: %v", t.file, user, err)
+		os.Exit(1)
 	}
 	acct := toAccount(user, host)
 	pickleKey := []byte("trix_is_for_kids")
 	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
 	err = t.DBstore.CreateTables()
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error creating SQL cryptostore tables ~/tmp/%s for user %s: %v", t.file, user, err)
+		os.Exit(1)
 	}
 }
 
@@ -127,12 +137,14 @@ func (t *MaTrix) MaDBopen(user string, host string) {
 func (t *MaTrix) MaDBclose() {
 	err := t.db.Close()
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error closing SQL database ~/tmp/%s for user %s: %v", t.file, t.Client.UserID, err)
+		os.Exit(1)
 	}
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp", t.file)); err == nil {
 		err = os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 		if err != nil {
-			panic(err)
+			log.Error().Msgf("Error removing db file ~/tmp/%s: %v", t.file, err)
+			os.Exit(1)
 		}
 	}
 }
@@ -165,10 +177,25 @@ var _ crypto.Logger = &fakeLogger{}
 
 func (f fakeLogger) Error(message string, args ...interface{}) {
 	//fmt.Printf("[ERROR] "+message+"\n", args...)
-	if message == "Error while verifying cross-signing keys: the input base64 was invalid" {
-		return
+	warn, err := zerolog.ParseLevel("warn")
+	if err != nil {
+		log.Error().Msgf("Error cannot parse zerolog warn log level: %v", err)
+		os.Exit(1)
 	}
-	log.Error().Msgf(message, args...)
+	info, err := zerolog.ParseLevel("info")
+	if err != nil {
+		log.Error().Msgf("Error cannot parse zerolog info log level: %v", err)
+		os.Exit(1)
+	}
+	if strings.HasPrefix(message, "Error while verifying cross-signing keys") {
+		if zerolog.GlobalLevel() == warn || zerolog.GlobalLevel() == info {
+			return
+		}
+		log.Error().Msgf(message, args...)
+	} else {
+		log.Error().Msgf(message, args...)
+		os.Exit(1)
+	}
 }
 
 func (f fakeLogger) Warn(message string, args ...interface{}) {
@@ -198,12 +225,14 @@ func (t *MaTrix) MaOlm() {
 	// Load data from the crypto store
 	err := t.Olm.Load()
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error loading Olm machine data to matrix for user %s: %v", t.Client.UserID, err)
+		os.Exit(1)
 	}
 	if t.Olm.CrossSigningKeys == nil {
 		t.Olm.CrossSigningKeys, err = t.Olm.GenerateCrossSigningKeys()
 		if err != nil {
-			panic(err)
+			log.Error().Msgf("Error generating cross signing keys for user %s: %v", t.Client.UserID, err)
+			os.Exit(1)
 		}
 	}
 }
@@ -212,7 +241,8 @@ func (t *MaTrix) MaOlm() {
 func getUserIDs(cli *mautrix.Client, roomID id.RoomID) []id.UserID {
 	members, err := cli.JoinedMembers(roomID)
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error retreiving room member list for %s: %v", string(roomID), err)
+		os.Exit(1)
 	}
 	userIDs := make([]id.UserID, len(members.Joined))
 	i := 0
@@ -235,16 +265,19 @@ func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
 	if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {
 		err = t.Olm.ShareGroupSession(rm, getUserIDs(t.Client, rm))
 		if err != nil {
-			panic(err)
+			log.Error().Msgf("Error sharing group session to %s: %v", room, err)
+			os.Exit(1)
 		}
 		encrypted, err = t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
 		if err != nil {
-			panic(err)
+			log.Error().Msgf("Error encrypting message to %s: %v", room, err)
+			os.Exit(1)
 		}
 	}
 	resp, err := t.Client.SendMessageEvent(rm, event.EventEncrypted, encrypted)
 	if err != nil {
-		panic(err)
+		log.Error().Msgf("Error sending encrypted message to %s: %v", room, err)
+		os.Exit(1)
 	}
 	return resp.EventID
 }

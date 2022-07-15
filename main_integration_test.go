@@ -39,20 +39,20 @@ func addUser(cli *client.Client, container string, cmd []string) string {
 
 	rst, err := cli.ContainerExecCreate(context.Background(), container, trix)
 	if err != nil {
-		log.Debug().Msgf("%v", err)
+		log.Error().Msgf("Error creating docker exec: %v", err)
 		os.Exit(1)
 	}
 
 	response, err := cli.ContainerExecAttach(context.Background(), rst.ID, types.ExecStartCheck{})
 	if err != nil {
-		log.Debug().Msgf("%v", err)
+		log.Error().Msgf("Error execuing docker exec: %v", err)
 		os.Exit(1)
 	}
 	defer response.Close()
 
 	data, err := ioutil.ReadAll(response.Reader)
 	if err != nil {
-		log.Debug().Msgf("%v", err)
+		log.Error().Msgf("Error rading docker exec command: %v", err)
 		os.Exit(1)
 	}
 	return string(data)
@@ -67,9 +67,9 @@ func createRoom(vis string, alias string, direct bool) *mautrix.RespCreateRoom {
 	}
 	resp, err := self.Client.CreateRoom(rm)
 	if errors.Is(err, mautrix.MRoomInUse) {
-		log.Debug().Msgf("room already created")
+		log.Debug().Msgf("Room %s already created", alias)
 	} else if err != nil {
-		log.Debug().Msgf("%v", err)
+		log.Error().Msgf("Error creating room %s: %v", alias, err)
 		os.Exit(1)
 	}
 	return resp
@@ -88,12 +88,12 @@ func setUp() {
 	// get the running matrix host container id
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		log.Debug().Msgf("%v", err)
+		log.Error().Msgf("Error creating docker client: %v", err)
 		os.Exit(1)
 	}
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
-		log.Debug().Msgf("%v", err)
+		log.Error().Msgf("Error getting list of running containers: %v", err)
 		os.Exit(1)
 	}
 	for _, container := range containers {
@@ -105,23 +105,23 @@ func setUp() {
 	// add the matrix users
 	cmd = []string{"register_new_matrix_user", "http://localhost:8008", "-c", "/data/homeserver.yaml", "-u", "trix", "-p", "trix", "-a"}
 	cmdRes = addUser(cli, ct, cmd)
-	log.Debug().Msgf("create trix user: %s", cmdRes)
+	log.Debug().Msgf("Create trix user: %s", cmdRes)
 
 	cmd = []string{"register_new_matrix_user", "http://localhost:8008", "-c", "/data/homeserver.yaml", "-u", "bot", "-p", "bot", "--no-admin"}
 	cmdRes = addUser(cli, ct, cmd)
-	log.Debug().Msgf("create bot user: %s", cmdRes)
+	log.Debug().Msgf("Create bot user: %s", cmdRes)
 
 	// trix admin user login
 	self.MaLogin("http://localhost:8008", "trix", "trix")
 
 	// create public room & trix user join
 	roomRes = createRoom("public", "public", false)
-	log.Debug().Msgf("create room public: %v\n", roomRes)
+	log.Debug().Msgf("Create room public: %v\n", roomRes)
 	self.MaJoinRoom("#public:localhost")
 
 	// create ptivate room & trix user join
 	roomRes = createRoom("private", "private", false)
-	log.Debug().Msgf("create room private: %v\n", roomRes)
+	log.Debug().Msgf("Create room private: %v\n", roomRes)
 	self.MaJoinRoom("#private:localhost")
 
 	self.MaDBopen("trix", "http://localhost:8008")
@@ -139,7 +139,7 @@ func setUp() {
 	go func() {
 		err := self.Client.Sync()
 		if err != nil {
-			log.Debug().Msgf("%v", err)
+			log.Error().Msgf("Error trix user matrix sync: %v", err)
 			os.Exit(1)
 		}
 	}()
@@ -173,14 +173,14 @@ func TestWriteEncText(t *testing.T) {
 	go func() {
 		err := bot.Client.Sync()
 		if err != nil {
-			log.Debug().Msgf("%v", err)
+			log.Error().Msgf("Error bot user matrix sync: %v", err)
 			os.Exit(1)
 		}
 	}()
 
 	// send encrypted message
 	resp := bot.SendEncrypted("#public:localhost", "test message from the robot")
-	log.Debug().Msgf("Sent Message EventID %v\n", resp)
+	log.Debug().Msgf("Sent Message from bot to room #public:localhost EventID %v\n", resp)
 	//	numbers["one"] = numbers["one"] + 1
 	//
 	//	if numbers["one"] != 2 {
