@@ -157,43 +157,8 @@ func TestWriteEncText(t *testing.T) {
 
 	cmd := exec.Command("./trix", "out", "-o", "http://localhost:8008", "-u", "bot", "-p", "bot", "-r", "#public:localhost", "-t", "test message", "-v")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
-		log.Error().Msgf("Error trix cli bot user cmd.Run() failed: %s", err)
-		os.Exit(1)
-	}
 	log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
-	//	var bot trix.MaTrix
-	//	bot.MaLogin("http://localhost:8008", "bot", "bot")
-	//	defer bot.MaLogout()
-	//	bot.MaJoinRoom("#public:localhost")
-	//	bot.MaDBopen("bot", "http://localhost:8008")
-	//	defer bot.MaDBclose()
-	//	bot.MaOlm()
-	//	botSyncer := bot.Client.Syncer.(*mautrix.DefaultSyncer)
-	//	botSyncer.OnSync(func(resp *mautrix.RespSync, since string) bool {
-	//		bot.Olm.ProcessSyncResponse(resp, since)
-	//		return true
-	//	})
-	//	botSyncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
-	//		bot.Olm.HandleMemberEvent(evt)
-	//	})
-
-	// start polling in the background
-	//	go func() {
-	//		err := bot.Client.Sync()
-	//		if err != nil {
-	//			log.Error().Msgf("Error bot user matrix sync: %v", err)
-	//			os.Exit(1)
-	//		}
-	//	}()
-
-	// send encrypted message
-	//	resp := bot.SendEncrypted("#public:localhost", "test message from the robot")
-	//	log.Debug().Msgf("Sent Message from bot to room #public:localhost EventID %v\n", resp)
-	//	numbers["one"] = numbers["one"] + 1
-	//
-	//	if numbers["one"] != 2 {
-	//		t.Error("1 plus 1 = 2, not %v", value)
-	//	}
+	if err != nil {
+		t.Errorf("Error trix cli bot user cmd.Run() failed: %s", err)
+	}
 }
