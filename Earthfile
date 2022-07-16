@@ -19,7 +19,7 @@ build:
 #  RUN go test
 
 itest:
-  FROM +deps
+  FROM +build
   COPY --dir synapse ./
   COPY main_integration_test.go ./
   WITH DOCKER --compose synapse/docker-compose.yaml
@@ -29,4 +29,3 @@ itest:
 all:
 #  BUILD +utest
   BUILD +itest
-  BUILD +build

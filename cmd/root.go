@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"reflect"
@@ -74,8 +75,12 @@ func validateHost(host string) string {
 
 func validateRoom(room string, host string) string {
 	var text string
-	u := strings.Split(host, "//")[1]
-	suffix := fmt.Sprintf(":%s", u)
+	u, _ := url.Parse(host)
+	suffix := fmt.Sprintf(":%v", u.Host)
+	h, p, _ := net.SplitHostPort(u.Host)
+	if len(p) > 0 {
+		suffix = fmt.Sprintf(":%s", h)
+	}
 	if !(strings.HasSuffix(room, suffix)) {
 		text = "\nERROR: matrix flag room format is not valid. missing matrix hostname.\n"
 		return text

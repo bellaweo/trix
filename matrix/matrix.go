@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,8 +33,13 @@ type MaTrix struct {
 
 // user full account name. i.e. @<user>:<host>
 func toAccount(user string, host string) string {
-	url := strings.Split(host, "//")[1]
-	return fmt.Sprintf("@%s:%s", user, url)
+	u, _ := url.Parse(host)
+	final := u.Host
+	h, p, _ := net.SplitHostPort(u.Host)
+	if len(p) > 0 {
+		final = h
+	}
+	return fmt.Sprintf("@%s:%s", user, final)
 }
 
 // convert matrix rooim alias to roomID. or convert room string to RoomID type.
@@ -92,12 +99,12 @@ func (t *MaTrix) MaLogout() *mautrix.RespLogout {
 
 // return a random string of fixed length characters
 func randString(length int) string {
-	rand.Seed(time.Now().Unix())
+	var sRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	ran := make([]rune, length)
 	for i := range ran {
-		ran[i] = letters[rand.Intn(len(letters))]
+		ran[i] = letters[sRand.Intn(len(letters))]
 	}
 	return string(ran)
 }
