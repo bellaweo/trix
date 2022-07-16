@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM golang:1.18-bullseye
+FROM betch/godnd:18
 WORKDIR /build
 
 deps:

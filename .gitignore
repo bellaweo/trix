@@ -14,12 +14,13 @@
 !*.go
 !go.sum
 !go.mod
-!synapse/*
 
 !README.md
 !LICENSE
+!synapse/*
 
 !Earthfile
+!Dockerfile
 
 !.envrc
 
