@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3" // comment
+	_ "github.com/mattn/go-sqlite3" // sqlite db driver
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
