@@ -15,13 +15,13 @@ build:
 #utest:
 #  FROM +deps
 #  COPY main.go .
-#  COPY main_test.go .
+#  COPY main_u_test.go .
 #  RUN go test
 
 itest:
   FROM +build
   COPY --dir synapse ./
-  COPY main_integration_test.go ./
+  COPY main_i_test.go ./
   WITH DOCKER --compose synapse/docker-compose.yaml
     RUN go test
   END
