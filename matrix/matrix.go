@@ -56,7 +56,7 @@ func toRoomID(cli *mautrix.Client, room string) id.RoomID {
 	return id.RoomID(room)
 }
 
-// MaLogin client login to matrix & join room
+// MaLogin client login to matrix
 func (t *MaTrix) MaLogin(host string, user string, pass string) {
 	var err error
 	t.Client, err = mautrix.NewClient(host, "", "")
@@ -107,53 +107,6 @@ func randString(length int) string {
 		ran[i] = letters[sRand.Intn(len(letters))]
 	}
 	return string(ran)
-}
-
-// MaDBopen create matrix SQL cryptostore
-func (t *MaTrix) MaDBopen(user string, host string) {
-	t.file = fmt.Sprintf("trix.%s", randString(4))
-	log.Debug().Msgf("SQL cryptostore db file for user %s: %v", user, t.file)
-	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
-		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
-		if err != nil {
-			log.Error().Msgf("Error creating directory ~/tmpi: %v", err)
-			os.Exit(1)
-		}
-	}
-	_, err := os.Create(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
-	if err != nil {
-		log.Error().Msgf("Error creating file ~/tmp/%s for user %s: %v", t.file, user, err)
-		os.Exit(1)
-	}
-	t.db, err = sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", t.file))
-	if err != nil {
-		log.Error().Msgf("Error opening sql db ~/tmp/%s for user %s: %v", t.file, user, err)
-		os.Exit(1)
-	}
-	acct := toAccount(user, host)
-	pickleKey := []byte("trix_is_for_kids")
-	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
-	err = t.DBstore.CreateTables()
-	if err != nil {
-		log.Error().Msgf("Error creating SQL cryptostore tables ~/tmp/%s for user %s: %v", t.file, user, err)
-		os.Exit(1)
-	}
-}
-
-//MaDBclose delete matrix SQL cryptostore
-func (t *MaTrix) MaDBclose() {
-	err := t.db.Close()
-	if err != nil {
-		log.Error().Msgf("Error closing SQL database ~/tmp/%s for user %s: %v", t.file, t.Client.UserID, err)
-		os.Exit(1)
-	}
-	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp", t.file)); err == nil {
-		err = os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
-		if err != nil {
-			log.Error().Msgf("Error removing db file ~/tmp/%s: %v", t.file, err)
-			os.Exit(1)
-		}
-	}
 }
 
 // crypto.StateStore implementation that says all rooms are encrypted.
@@ -224,13 +177,42 @@ func (f fakeLogger) Trace(message string, args ...interface{}) {
 	log.Trace().Msgf(message, args...)
 }
 
-// MaOlm create olm machine
-func (t *MaTrix) MaOlm() {
+// MaUserEnc create matrix SQL cryptostorea & user olm machine
+func (t *MaTrix) MaUserEnc(user string, host string) {
+	// create the sql cryptostore (sqlite)
+	t.file = fmt.Sprintf("trix.%s", randString(4))
+	log.Debug().Msgf("SQL cryptostore db file for user %s: %v", user, t.file)
+	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
+		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
+		if err != nil {
+			log.Error().Msgf("Error creating directory ~/tmpi: %v", err)
+			os.Exit(1)
+		}
+	}
+	_, err := os.Create(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
+	if err != nil {
+		log.Error().Msgf("Error creating file ~/tmp/%s for user %s: %v", t.file, user, err)
+		os.Exit(1)
+	}
+	t.db, err = sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", t.file))
+	if err != nil {
+		log.Error().Msgf("Error opening sql db ~/tmp/%s for user %s: %v", t.file, user, err)
+		os.Exit(1)
+	}
+	acct := toAccount(user, host)
+	pickleKey := []byte("trix_is_for_kids")
+	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
+	err = t.DBstore.CreateTables()
+	if err != nil {
+		log.Error().Msgf("Error creating SQL cryptostore tables ~/tmp/%s for user %s: %v", t.file, user, err)
+		os.Exit(1)
+	}
+	// create the olm machine
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
 	t.Olm.AllowUnverifiedDevices = true
 	t.Olm.ShareKeysToUnverifiedDevices = false
 	// Load data from the crypto store
-	err := t.Olm.Load()
+	err = t.Olm.Load()
 	if err != nil {
 		log.Error().Msgf("Error loading Olm machine data to matrix for user %s: %v", t.Client.UserID, err)
 		os.Exit(1)
@@ -239,6 +221,22 @@ func (t *MaTrix) MaOlm() {
 		t.Olm.CrossSigningKeys, err = t.Olm.GenerateCrossSigningKeys()
 		if err != nil {
 			log.Error().Msgf("Error generating cross signing keys for user %s: %v", t.Client.UserID, err)
+			os.Exit(1)
+		}
+	}
+}
+
+//MaDBclose delete matrix SQL cryptostore
+func (t *MaTrix) MaDBclose() {
+	err := t.db.Close()
+	if err != nil {
+		log.Error().Msgf("Error closing SQL database ~/tmp/%s for user %s: %v", t.file, t.Client.UserID, err)
+		os.Exit(1)
+	}
+	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp", t.file)); err == nil {
+		err = os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
+		if err != nil {
+			log.Error().Msgf("Error removing db file ~/tmp/%s: %v", t.file, err)
 			os.Exit(1)
 		}
 	}

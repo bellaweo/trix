@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	trix "codeberg.org/meh/trix/matrix"
 	"github.com/docker/docker/api/types"
@@ -19,6 +20,7 @@ import (
 )
 
 var self trix.MaTrix
+var botMessage string
 
 // TestMain will exec each test, one by one
 func TestMain(m *testing.M) {
@@ -83,7 +85,8 @@ func setUp() {
 	var cmdRes string
 	var roomRes *mautrix.RespCreateRoom
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	//zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	// get the running matrix host container id
@@ -125,9 +128,10 @@ func setUp() {
 	log.Debug().Msgf("Create room private: %v\n", roomRes)
 	self.MaJoinRoom("#private:localhost")
 
-	self.MaDBopen("trix", "http://localhost:8008")
-	self.MaOlm()
+	// initialize trix user sql cryptostore & olm machine
+	self.MaUserEnc("trix", "http://localhost:8008")
 
+	start := time.Now().UnixNano() / 1_000_000
 	trixSyncer := self.Client.Syncer.(*mautrix.DefaultSyncer)
 	trixSyncer.OnSync(func(resp *mautrix.RespSync, since string) bool {
 		self.Olm.ProcessSyncResponse(resp, since)
@@ -135,6 +139,23 @@ func setUp() {
 	})
 	trixSyncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
 		self.Olm.HandleMemberEvent(evt)
+	})
+	trixSyncer.OnEventType(event.EventEncrypted, func(source mautrix.EventSource, evt *event.Event) {
+		if evt.Timestamp < start {
+			// Ignore events from before the program started
+			return
+		}
+		decrypted, err := self.Olm.DecryptMegolmEvent(evt)
+		if err != nil {
+			log.Error().Msgf("Error failed to decrypt message: %s", err)
+			os.Exit(1)
+		} else {
+			log.Debug().Msgf("Received encrypted event: %v", decrypted.Content.Raw)
+			message, isMessage := decrypted.Content.Parsed.(*event.MessageEventContent)
+			if isMessage {
+				botMessage = message.Body
+			}
+		}
 	})
 	// start polling in the background
 	go func() {
@@ -155,10 +176,15 @@ func tearDown() {
 //  write an encrypted text message
 func TestWriteEncText(t *testing.T) {
 
-	cmd := exec.Command("./trix", "out", "-o", "http://localhost:8008", "-u", "bot", "-p", "bot", "-r", "#public:localhost", "-t", "test message", "-v")
+	text := "the rain in spain falls mainly on the plain"
+	cmd := exec.Command("./trix", "out", "-o", "http://localhost:8008", "-u", "bot", "-p", "bot", "-r", "#public:localhost", "-t", text, "-v")
 	out, err := cmd.CombinedOutput()
 	log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
 	if err != nil {
 		t.Errorf("Error trix cli bot user cmd.Run() failed: %s", err)
+	}
+	time.Sleep(5 * time.Second) // give the trix syncer a few seconds to read the message
+	if botMessage != text {
+		t.Errorf("Error trix client read bot message as: %s. Expected: %s", botMessage, text)
 	}
 }

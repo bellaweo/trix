@@ -40,10 +40,8 @@ var (
 			out.MaLogin(root.Host, root.User, root.Pass)
 			// join the matrix room
 			out.MaJoinRoom(root.Room)
-			// create sql cryptostore
-			out.MaDBopen(root.User, root.Host)
-			// create olm machine
-			out.MaOlm()
+			// create sql cryptostore & olm machine
+			out.MaUserEnc(root.User, root.Host)
 
 			// defer logout and dbclose til cli exits
 			defer func() {
