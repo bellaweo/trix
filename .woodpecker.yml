@@ -30,7 +30,8 @@ pipeline:
       - mkdir github_mirror
       - cd github_mirror
       - git clone --bare https://codeberg.org/meh/trix.git
-      - cd trix && git push --mirror https://$${GITHUB_USER}:$${GITHUB_PASS}@github.com/$${GITHUB_USER}/trix.git
+      - cd trix.git
+      - git push --mirror https://$${GITHUB_USER}:$${GITHUB_PASS}@github.com/$${GITHUB_USER}/trix.git
     when:
       event: push
       branch: main
