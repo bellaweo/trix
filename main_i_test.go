@@ -1,17 +1,13 @@
 package main
 
 import (
-	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
 	trix "codeberg.org/meh/trix/matrix"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
@@ -30,42 +26,12 @@ func TestMain(m *testing.M) {
 	os.Exit(retCode)
 }
 
-// execute docker exec command to create new user on matrix host
-func addUser(cli *client.Client, container string, cmd []string) string {
-	trix := types.ExecConfig{
-		AttachStdout: true,
-		AttachStderr: true,
-		Privileged:   true,
-		Tty:          true,
-		Cmd:          cmd,
-	}
-
-	rst, err := cli.ContainerExecCreate(context.Background(), container, trix)
-	if err != nil {
-		log.Error().Msgf("Error creating docker exec: %v", err)
-		os.Exit(1)
-	}
-
-	response, err := cli.ContainerExecAttach(context.Background(), rst.ID, types.ExecStartCheck{})
-	if err != nil {
-		log.Error().Msgf("Error execuing docker exec: %v", err)
-		os.Exit(1)
-	}
-	defer response.Close()
-
-	data, err := ioutil.ReadAll(response.Reader)
-	if err != nil {
-		log.Error().Msgf("Error rading docker exec command: %v", err)
-		os.Exit(1)
-	}
-	return string(data)
-}
-
+// create matrix room
 func createRoom(vis string, alias string, direct bool) *mautrix.RespCreateRoom {
 	rm := &mautrix.ReqCreateRoom{
 		Visibility:    vis,
 		RoomAliasName: alias,
-		Invite:        []id.UserID{"@bot:localhost"},
+		Invite:        []id.UserID{"@bot:trix.meh"},
 		IsDirect:      direct,
 	}
 	resp, err := self.Client.CreateRoom(rm)
@@ -80,56 +46,27 @@ func createRoom(vis string, alias string, direct bool) *mautrix.RespCreateRoom {
 
 // setUp function, add a number to numbers slice
 func setUp() {
-	var ct string
-	var cmd []string
-	var cmdRes string
 	var roomRes *mautrix.RespCreateRoom
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	//zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	// get the running matrix host container id
-	cli, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		log.Error().Msgf("Error creating docker client: %v", err)
-		os.Exit(1)
-	}
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
-	if err != nil {
-		log.Error().Msgf("Error getting list of running containers: %v", err)
-		os.Exit(1)
-	}
-	for _, container := range containers {
-		if container.Image == "synapse_matrix" {
-			ct = container.ID[:10]
-		}
-	}
-
-	// add the matrix users
-	cmd = []string{"register_new_matrix_user", "http://localhost:8008", "-c", "/data/homeserver.yaml", "-u", "trix", "-p", "trix", "-a"}
-	cmdRes = addUser(cli, ct, cmd)
-	log.Debug().Msgf("Create trix user: %s", cmdRes)
-
-	cmd = []string{"register_new_matrix_user", "http://localhost:8008", "-c", "/data/homeserver.yaml", "-u", "bot", "-p", "bot", "--no-admin"}
-	cmdRes = addUser(cli, ct, cmd)
-	log.Debug().Msgf("Create bot user: %s", cmdRes)
-
 	// trix admin user login
-	self.MaLogin("http://localhost:8008", "trix", "trix")
+	self.MaLogin("http://trix.meh", "trix", "trix")
 
 	// create public room & trix user join
 	roomRes = createRoom("public", "public", false)
 	log.Debug().Msgf("Create room public: %v\n", roomRes)
-	self.MaJoinRoom("#public:localhost")
+	self.MaJoinRoom("#public:trix.meh")
 
 	// create ptivate room & trix user join
 	roomRes = createRoom("private", "private", false)
 	log.Debug().Msgf("Create room private: %v\n", roomRes)
-	self.MaJoinRoom("#private:localhost")
+	self.MaJoinRoom("#private:trix.meh")
 
 	// initialize trix user sql cryptostore & olm machine
-	self.MaUserEnc("trix", "http://localhost:8008")
+	self.MaUserEnc("trix", "http://trix.meh")
 
 	start := time.Now().UnixNano() / 1_000_000
 	trixSyncer := self.Client.Syncer.(*mautrix.DefaultSyncer)
@@ -177,7 +114,7 @@ func tearDown() {
 func TestWriteEncText(t *testing.T) {
 
 	text := "the rain in spain falls mainly on the plain"
-	cmd := exec.Command("./trix", "out", "-o", "http://localhost:8008", "-u", "bot", "-p", "bot", "-r", "#public:localhost", "-t", text, "-v")
+	cmd := exec.Command("./trix", "out", "-o", "http://trix.meh", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")
 	out, err := cmd.CombinedOutput()
 	log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
 	if err != nil {

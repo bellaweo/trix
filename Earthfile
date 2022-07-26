@@ -1,5 +1,6 @@
-VERSION 0.6
+VERSION --use-host-command 0.6
 FROM betch/godnd:18
+HOST trix.meh 127.0.0.1
 WORKDIR /build
 
 deps:
@@ -19,13 +20,15 @@ build:
 #  RUN go test
 
 itest:
-  FROM +build
-  COPY --dir synapse ./
+  FROM +deps
+  COPY +build/trix ./
+  COPY --dir trixtest ./
   COPY main_i_test.go ./
-  WITH DOCKER --compose synapse/docker-compose.yaml
-    RUN go test
+  WITH DOCKER --compose trixtest/docker-compose.yaml
+    RUN go test -v
   END
 
 all:
+  BUILD +build
 #  BUILD +utest
   BUILD +itest
