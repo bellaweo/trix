@@ -17,10 +17,12 @@
 
 !README.md
 !LICENSE
-!synapse/*
 
 !Earthfile
 !Dockerfile
+!docker-compose.yml
+!docker-compose.yaml
+!.woodpecker.yml
 
 !.envrc
 

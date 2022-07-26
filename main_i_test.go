@@ -53,7 +53,7 @@ func setUp() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	// trix admin user login
-	self.MaLogin("http://trix.meh", "trix", "trix")
+	self.MaLogin("http://trix.meh:8008", "trix", "trix")
 
 	// create public room & trix user join
 	roomRes = createRoom("public", "public", false)
@@ -66,7 +66,7 @@ func setUp() {
 	self.MaJoinRoom("#private:trix.meh")
 
 	// initialize trix user sql cryptostore & olm machine
-	self.MaUserEnc("trix", "http://trix.meh")
+	self.MaUserEnc("trix", "http://trix.meh:8008")
 
 	start := time.Now().UnixNano() / 1_000_000
 	trixSyncer := self.Client.Syncer.(*mautrix.DefaultSyncer)
@@ -114,7 +114,7 @@ func tearDown() {
 func TestWriteEncText(t *testing.T) {
 
 	text := "the rain in spain falls mainly on the plain"
-	cmd := exec.Command("./trix", "out", "-o", "http://trix.meh", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")
+	cmd := exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")
 	out, err := cmd.CombinedOutput()
 	log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
 	if err != nil {

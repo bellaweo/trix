@@ -1,0 +1,7 @@
+services:
+  matrix:
+    image: betch/trixtest:v1.63.1
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+

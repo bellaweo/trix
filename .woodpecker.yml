@@ -1,0 +1,28 @@
+pipeline:
+
+  test:
+    image: betch/godnd:18
+    commands:
+      - apt update
+      - apt install -y build-essential libolm-dev sqlite3
+      - go mod download
+      - go build -o trix
+      - go test -v
+    when:
+      event: pull_request
+
+  main:
+    image: betch/godnd:18
+    commands:
+      - apt update
+      - apt install -y build-essential libolm-dev sqlite3
+      - go mod download
+      - go build -o trix
+      - go test -v
+    when:
+      event: push
+      branch: main
+
+services:
+  trix.meh:
+    image: betch/trixtest:v1.63.1
