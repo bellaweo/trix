@@ -1,7 +1,7 @@
 pipeline:
 
   test:
-    image: betch/godnd:18
+    image: betch/godnd:1.18
     commands:
       - apt update
       - apt install -y build-essential libolm-dev sqlite3
@@ -12,7 +12,7 @@ pipeline:
       event: pull_request
 
   main:
-    image: betch/godnd:18
+    image: betch/godnd:1.18
     commands:
       - apt update
       - apt install -y build-essential libolm-dev sqlite3
@@ -24,7 +24,7 @@ pipeline:
       branch: main
 
   mirror:
-    image: betch/godnd:18
+    image: betch/godnd:1.18
     secrets: [ github_user, github_pass ]
     commands:
       - mkdir github_mirror

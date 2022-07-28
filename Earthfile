@@ -1,5 +1,5 @@
 VERSION --use-host-command 0.6
-FROM betch/godnd:18
+FROM betch/godnd:1.18
 HOST trix.meh 127.0.0.1
 WORKDIR /build
 
@@ -19,8 +19,8 @@ test:
   COPY +build/trix ./
   COPY --dir trixtest ./
   COPY main_test.go ./
-  WITH DOCKER --compose trixtest/docker-compose.yaml
-    RUN go test -v
+  WITH DOCKER --pull betch/trixtest:latest
+    RUN docker run -d -p 8008:8008 betch/trixtest:latest && go test -v
   END
 
 all:

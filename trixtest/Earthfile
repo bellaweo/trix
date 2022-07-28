@@ -1,0 +1,23 @@
+VERSION 0.6
+FROM betch/godnd:1.18
+ARG VER=$(curl -fsSL https://api.github.com/repos/matrix-org/synapse/releases/latest | jq -r '.tag_name')
+
+init:
+  WITH DOCKER --pull matrixdotorg/synapse:${VER}
+    RUN docker run --rm -v $(pwd):/data -e SYNAPSE_SERVER_NAME=trix.meh -e SYNAPSE_REPORT_STATS=no matrixdotorg/synapse:${VER} generate && \
+      CT=$(docker run -d -v $(pwd):/data -p 8008:8008 matrixdotorg/synapse:${VER}) && sleep 5 && \
+      docker exec ${CT} register_new_matrix_user http://localhost:8008 -c /data/homeserver.yaml -u trix -p trix -a && \
+      docker exec ${CT} register_new_matrix_user http://localhost:8008 -c /data/homeserver.yaml -u bot -p bot --no-admin
+  END
+  SAVE ARTIFACT ./
+
+build:
+  FROM matrixdotorg/synapse:${VER}
+  COPY +init/* /data/
+  RUN cd / && chown -R 991:991 /data
+  SAVE IMAGE --push docker.io/betch/trixtest:latest
+  SAVE IMAGE --push docker.io/betch/trixtest:${VER}
+
+all:
+  BUILD +init
+  BUILD +build
