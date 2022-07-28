@@ -17,7 +17,6 @@ build:
 test:
   FROM +deps
   COPY +build/trix ./
-  COPY --dir trixtest ./
   COPY main_test.go ./
   WITH DOCKER --pull betch/trixtest:latest
     RUN docker run -d -p 8008:8008 betch/trixtest:latest && go test -v
