@@ -1,0 +1,21 @@
+VERSION 0.6
+ARG VER
+
+build:
+  FROM golang:${VER}-bullseye
+  WORKDIR /build
+  RUN apt update && apt upgrade -y && apt install -y jq && \
+    REL=$(curl -fsSL https://api.github.com/repos/earthly/earthly/releases/latest | jq -r '.tag_name') && \
+    curl -o dockerd-install.sh -fsSL https://raw.githubusercontent.com/earthly/earthly/${REL}/buildkitd/docker-auto-install.sh && \
+    chmod 755 dockerd-install.sh && ./dockerd-install.sh
+  SAVE IMAGE --push docker.io/betch/godnd:${VER}
+
+ver18:
+  BUILD +build --VER=1.18
+
+ver19:
+  BUILD +build --VER=1.19
+
+all:
+  BUILD +ver18
+  #BUILD +ver19
