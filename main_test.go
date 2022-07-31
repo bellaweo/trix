@@ -17,6 +17,7 @@ import (
 )
 
 var self trix.MaTrix
+var debug string
 var botMessage string
 
 // TestMain will exec each test, one by one
@@ -49,8 +50,14 @@ func setUp() {
 	var roomRes *mautrix.RespCreateRoom
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-	//zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	debug, ok := os.LookupEnv("DEBUG")
+	if ok {
+		if debug == "true" {
+			zerolog.SetGlobalLevel(zerolog.TraceLevel)
+		} else {
+			zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+		}
+	}
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	// trix admin user login
@@ -113,7 +120,12 @@ func tearDown() {
 func TestWriteEncText(t *testing.T) {
 
 	text := "the rain in spain falls mainly on the plain"
-	cmd := exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")
+	var cmd *exec.Cmd
+	if debug == "true" {
+		cmd = exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")
+	} else {
+		cmd = exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text)
+	}
 	out, err := cmd.CombinedOutput()
 	log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
 	if err != nil {

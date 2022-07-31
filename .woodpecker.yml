@@ -7,7 +7,7 @@ pipeline:
       - apt install -y build-essential libolm-dev sqlite3
       - go mod download
       - go build -o trix
-      - go test -v
+      - DEBUG=false go test -v
     when:
       event: pull_request
 
@@ -18,7 +18,7 @@ pipeline:
       - apt install -y build-essential libolm-dev sqlite3
       - go mod download
       - go build -o trix
-      - go test -v
+      - DEBUG=false go test -v
     when:
       event: push
       branch: main
