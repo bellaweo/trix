@@ -4,7 +4,17 @@
 
 A matrix cli for performing one-off tasks.
 
-Documentation to follow (but the cli is desigend to be mostly self-documenting).
+The cli is desigend to be mostly self-documenting. To see the cmd line options, run `trix help`.
+
+Currently, the cli supports sending encrypted messages to a matrix room. The user needs to already exist on the matrix host and needs permission to join the the matrix room. The primary use-case for this project is in scripts to send notifications to a matrix room.
+
+# development
+
+An integration test suite exists in this repo which is managed by [Earthly](https://earthly.dev). Once you have earthly installed, the Earthfile in the root of the repo has a +test target which bootstraps an isolated matrix server and tests the trix binary against it.
+
+The Earthfile +all target will build the trix binary, run the integration tests, and create a local trix artifact.
+
+Tests can be run in debug mode by providing the DEBUG ARG to the earthly command. For example, `earthly --build-arg DEBUG=true +all`
 
 # Give Up GitHub
 
