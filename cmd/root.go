@@ -62,12 +62,12 @@ func validateHost(host string) string {
 	var text string
 	_, err := url.ParseRequestURI(host)
 	if err != nil {
-		text = fmt.Sprintf("\nERROR: matrix flag host format not valid. %v.\n", err)
+		text = fmt.Sprintf("\nERROR: matrix flag host format not valid. %s.\n", err)
 		return text
 	}
 	u, err := url.Parse(host)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		text = fmt.Sprintf("\nERROR: matrix flag host format not valid. %v.\n", err)
+		text = fmt.Sprintf("\nERROR: matrix flag host format not valid. %s.\n", err)
 		return text
 	}
 	return text
@@ -76,7 +76,7 @@ func validateHost(host string) string {
 func validateRoom(room string, host string) string {
 	var text string
 	u, _ := url.Parse(host)
-	suffix := fmt.Sprintf(":%v", u.Host)
+	suffix := fmt.Sprintf(":%s", u.Host)
 	h, p, _ := net.SplitHostPort(u.Host)
 	if len(p) > 0 {
 		suffix = fmt.Sprintf(":%s", h)

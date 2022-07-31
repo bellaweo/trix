@@ -10,6 +10,7 @@ import (
 	trix "codeberg.org/meh/trix/matrix"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -38,8 +39,7 @@ func createRoom(vis string, alias string, direct bool) *mautrix.RespCreateRoom {
 	if errors.Is(err, mautrix.MRoomInUse) {
 		log.Debug().Msgf("Room %s already created", alias)
 	} else if err != nil {
-		log.Error().Msgf("Error creating room %s: %v", alias, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Create room %s", alias)
 	}
 	return resp
 }
@@ -48,8 +48,9 @@ func createRoom(vis string, alias string, direct bool) *mautrix.RespCreateRoom {
 func setUp() {
 	var roomRes *mautrix.RespCreateRoom
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	//zerolog.SetGlobalLevel(zerolog.TraceLevel)
-	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	//zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	// trix admin user login
@@ -66,7 +67,7 @@ func setUp() {
 	self.MaJoinRoom("#private:trix.meh")
 
 	// initialize trix user sql cryptostore & olm machine
-	self.MaUserEnc("trix", "http://trix.meh:8008")
+	self.MaUserEnc("trix", "trix", "http://trix.meh:8008")
 
 	start := time.Now().UnixNano() / 1_000_000
 	trixSyncer := self.Client.Syncer.(*mautrix.DefaultSyncer)
@@ -84,8 +85,7 @@ func setUp() {
 		}
 		decrypted, err := self.Olm.DecryptMegolmEvent(evt)
 		if err != nil {
-			log.Error().Msgf("Error failed to decrypt message: %s", err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msg("Decrypt message")
 		} else {
 			log.Debug().Msgf("Received encrypted event: %v", decrypted.Content.Raw)
 			message, isMessage := decrypted.Content.Parsed.(*event.MessageEventContent)
@@ -98,8 +98,7 @@ func setUp() {
 	go func() {
 		err := self.Client.Sync()
 		if err != nil {
-			log.Error().Msgf("Error trix user matrix sync: %v", err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msg("User trix client sync")
 		}
 	}()
 }

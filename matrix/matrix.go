@@ -17,6 +17,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
+	"maunium.net/go/mautrix/crypto/ssss"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
 )
@@ -48,8 +49,7 @@ func toRoomID(cli *mautrix.Client, room string) id.RoomID {
 		a := id.RoomAlias(room)
 		rm, err := cli.ResolveAlias(a)
 		if err != nil {
-			log.Error().Msgf("Error resolving alias to room %s: %v", room, err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msg("Resolve alias to room")
 		}
 		return rm.RoomID
 	}
@@ -61,8 +61,7 @@ func (t *MaTrix) MaLogin(host string, user string, pass string) {
 	var err error
 	t.Client, err = mautrix.NewClient(host, "", "")
 	if err != nil {
-		log.Error().Msgf("Error creating new matrix client for user %s: %v", user, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Create new matrix client for user %s", user)
 	}
 	_, err = t.Client.Login(&mautrix.ReqLogin{
 		Type:                     "m.login.password",
@@ -72,8 +71,7 @@ func (t *MaTrix) MaLogin(host string, user string, pass string) {
 		StoreCredentials:         true,
 	})
 	if err != nil {
-		log.Error().Msgf("Error matrix client login user %s: %v", user, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("User %s log into matrix", user)
 	}
 }
 
@@ -82,8 +80,7 @@ func (t *MaTrix) MaJoinRoom(room string) {
 	rm := toRoomID(t.Client, room)
 	_, err := t.Client.JoinRoomByID(rm)
 	if err != nil {
-		log.Error().Msgf("Error user %s joining room %s: %v", t.Client.UserID, room, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("User %s join room %s", string(t.Client.UserID), room)
 	}
 }
 
@@ -91,8 +88,7 @@ func (t *MaTrix) MaJoinRoom(room string) {
 func (t *MaTrix) MaLogout() *mautrix.RespLogout {
 	resp, err := t.Client.Logout()
 	if err != nil {
-		log.Error().Msgf("Error user %s logout: %v", t.Client.UserID, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("User %s logout of matrix", string(t.Client.UserID))
 	}
 	return resp
 }
@@ -130,99 +126,88 @@ func (fss *fakeStateStore) FindSharedRooms(userID id.UserID) []id.RoomID {
 	return []id.RoomID{}
 }
 
-// crypto.Logger implementation that just prints to stdout.
+// crypto.Logger implementation that logs to zerolog
 type fakeLogger struct{}
 
 var _ crypto.Logger = &fakeLogger{}
 
 func (f fakeLogger) Error(message string, args ...interface{}) {
-	//fmt.Printf("[ERROR] "+message+"\n", args...)
 	warn, err := zerolog.ParseLevel("warn")
 	if err != nil {
-		log.Error().Msgf("Error cannot parse zerolog warn log level: %v", err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msg("Parse zerolog warn level")
 	}
 	info, err := zerolog.ParseLevel("info")
 	if err != nil {
-		log.Error().Msgf("Error cannot parse zerolog info log level: %v", err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msg("Parse zerolog info level")
 	}
 	if strings.HasPrefix(message, "Error while verifying cross-signing keys") {
 		if zerolog.GlobalLevel() == warn || zerolog.GlobalLevel() == info {
 			return
 		}
-		log.Error().Msgf(message, args...)
+		log.Error().Stack().Msgf(message, args...)
 	} else {
-		log.Error().Msgf(message, args...)
-		os.Exit(1)
+		log.Error().Stack().Msgf(message, args...)
 	}
 }
 
 func (f fakeLogger) Warn(message string, args ...interface{}) {
-	//fmt.Printf("[WARN] "+message+"\n", args...)
 	log.Warn().Msgf(message, args...)
 }
 
 func (f fakeLogger) Debug(message string, args ...interface{}) {
-	//fmt.Printf("[DEBUG] "+message+"\n", args...)
 	log.Debug().Msgf(message, args...)
 
 }
 
 func (f fakeLogger) Trace(message string, args ...interface{}) {
-	//if strings.HasPrefix(message, "Got membership state event") {
-	//	return
-	//}
-	//fmt.Printf("[TRACE] "+message+"\n", args...)
 	log.Trace().Msgf(message, args...)
 }
 
 // MaUserEnc create matrix SQL cryptostorea & user olm machine
-func (t *MaTrix) MaUserEnc(user string, host string) {
+func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	// create the sql cryptostore (sqlite)
 	t.file = fmt.Sprintf("trix.%s", randString(4))
 	log.Debug().Msgf("SQL cryptostore db file for user %s: %v", user, t.file)
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
 		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
 		if err != nil {
-			log.Error().Msgf("Error creating directory ~/tmpi: %v", err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msg("Create directory ~/tmp")
 		}
 	}
 	_, err := os.Create(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
-		log.Error().Msgf("Error creating file ~/tmp/%s for user %s: %v", t.file, user, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Create file ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
 	t.db, err = sql.Open("sqlite3", filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 	if err != nil {
-		log.Error().Msgf("Error opening sql db ~/tmp/%s for user %s: %v", t.file, user, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Open sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
 	acct := toAccount(user, host)
 	pickleKey := []byte("trix_is_for_kids")
 	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
 	err = t.DBstore.CreateTables()
 	if err != nil {
-		log.Error().Msgf("Error creating SQL cryptostore tables ~/tmp/%s for user %s: %v", t.file, user, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Create sql crypto db tables ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
 	// create the olm machine
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
 	t.Olm.AllowUnverifiedDevices = true
 	t.Olm.ShareKeysToUnverifiedDevices = false
+	// check if SSSS keys already exist for this user. if not, generate & upload
+	key, err := t.Olm.SSSS.GetDefaultKeyID()
+	if err != nil && err != ssss.ErrNoDefaultKeyAccountDataEvent {
+		log.Error().Stack().Err(err).Msgf("Retrieve default SSSS key for user %s", string(t.Client.UserID))
+	}
+	if len(key) == 0 {
+		_, err = t.Olm.GenerateAndUploadCrossSigningKeys(pass, "trix is for kids")
+		if err != nil {
+			log.Error().Stack().Err(err).Msgf("Create and upload SSSS cross signing keys for user %s", string(t.Client.UserID))
+		}
+	}
 	// Load data from the crypto store
 	err = t.Olm.Load()
 	if err != nil {
-		log.Error().Msgf("Error loading Olm machine data to matrix for user %s: %v", t.Client.UserID, err)
-		os.Exit(1)
-	}
-	if t.Olm.CrossSigningKeys == nil {
-		t.Olm.CrossSigningKeys, err = t.Olm.GenerateCrossSigningKeys()
-		if err != nil {
-			log.Error().Msgf("Error generating cross signing keys for user %s: %v", t.Client.UserID, err)
-			os.Exit(1)
-		}
+		log.Error().Stack().Err(err).Msgf("Load Olm machine to matrix for user %s", string(t.Client.UserID))
 	}
 }
 
@@ -230,14 +215,12 @@ func (t *MaTrix) MaUserEnc(user string, host string) {
 func (t *MaTrix) MaDBclose() {
 	err := t.db.Close()
 	if err != nil {
-		log.Error().Msgf("Error closing SQL database ~/tmp/%s for user %s: %v", t.file, t.Client.UserID, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Close sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp", t.file)); err == nil {
 		err = os.Remove(filepath.Join(os.Getenv("HOME"), "tmp", t.file))
 		if err != nil {
-			log.Error().Msgf("Error removing db file ~/tmp/%s: %v", t.file, err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msgf("Remove sql crypto store db file ~/tmp/%s", t.file)
 		}
 	}
 }
@@ -246,8 +229,7 @@ func (t *MaTrix) MaDBclose() {
 func getUserIDs(cli *mautrix.Client, roomID id.RoomID) []id.UserID {
 	members, err := cli.JoinedMembers(roomID)
 	if err != nil {
-		log.Error().Msgf("Error retreiving room member list for %s: %v", string(roomID), err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Retrieve room memebr list for %s", string(roomID))
 	}
 	userIDs := make([]id.UserID, len(members.Joined))
 	i := 0
@@ -270,19 +252,16 @@ func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
 	if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {
 		err = t.Olm.ShareGroupSession(rm, getUserIDs(t.Client, rm))
 		if err != nil {
-			log.Error().Msgf("Error sharing group session to %s: %v", room, err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msgf("Share group session to room %s", string(rm))
 		}
 		encrypted, err = t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
 		if err != nil {
-			log.Error().Msgf("Error encrypting message to %s: %v", room, err)
-			os.Exit(1)
+			log.Error().Stack().Err(err).Msgf("Encrypt message to room %s", rm)
 		}
 	}
 	resp, err := t.Client.SendMessageEvent(rm, event.EventEncrypted, encrypted)
 	if err != nil {
-		log.Error().Msgf("Error sending encrypted message to %s: %v", room, err)
-		os.Exit(1)
+		log.Error().Stack().Err(err).Msgf("Send encrypted message to room %s", rm)
 	}
 	return resp.EventID
 }

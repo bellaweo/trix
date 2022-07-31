@@ -41,7 +41,7 @@ var (
 			// join the matrix room
 			out.MaJoinRoom(root.Room)
 			// create sql cryptostore & olm machine
-			out.MaUserEnc(root.User, root.Host)
+			out.MaUserEnc(root.User, root.Pass, root.Host)
 
 			// defer logout and dbclose til cli exits
 			defer func() {
@@ -64,14 +64,13 @@ var (
 			go func() {
 				err := out.Client.Sync()
 				if err != nil {
-					log.Error().Msgf("Error syncing trix client %s to matrix host: %v", root.User, err)
-					os.Exit(1)
+					log.Error().Stack().Err(err).Msgf("User %s client sync", root.User)
 				}
 			}()
 
 			// send encrypted message
 			resp := out.SendEncrypted(root.Room, text)
-			log.Debug().Msgf("Sent Message from %s to room %s EventID %v\n", root.User, root.Room, resp)
+			log.Debug().Msgf("Sent Message from %s to room %s EventID %s\n", root.User, root.Room, string(resp))
 
 		},
 	}
