@@ -98,6 +98,7 @@ func setUp() {
 			message, isMessage := decrypted.Content.Parsed.(*event.MessageEventContent)
 			if isMessage {
 				botMessage = message.Body
+				log.Debug().Msgf("botMessage: %s", botMessage)
 			}
 		}
 	})
@@ -120,6 +121,30 @@ func tearDown() {
 func TestWriteEncText(t *testing.T) {
 
 	text := "the rain in spain falls mainly on the plain"
+	var cmd *exec.Cmd
+	if debug == "true" {
+		cmd = exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")
+	} else {
+		cmd = exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text)
+	}
+	out, err := cmd.CombinedOutput()
+	log.Debug().Msgf("trix cli bot user cmd out:\n%s", string(out))
+	if err != nil {
+		t.Errorf("Error trix cli bot user cmd.Run() failed: %s", err)
+	}
+	time.Sleep(5 * time.Second) // give the trix syncer a few seconds to read the message
+	if botMessage != text {
+		t.Errorf("Error trix client read bot message as: %s. Expected: %s", botMessage, text)
+	}
+}
+
+//  write an encrypted html formatted text message
+func TestWriteEncFormatted(t *testing.T) {
+
+	text := `i love html.
+& your mom loves html.
+<a href="https://mel.sh">mel</a> 'loves' html.
+<i>my dog</i> loves html.`
 	var cmd *exec.Cmd
 	if debug == "true" {
 		cmd = exec.Command("./trix", "out", "-o", "http://trix.meh:8008", "-u", "bot", "-p", "bot", "-r", "#public:trix.meh", "-t", text, "-v")

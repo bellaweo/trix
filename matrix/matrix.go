@@ -240,12 +240,21 @@ func getUserIDs(cli *mautrix.Client, roomID id.RoomID) []id.UserID {
 	return userIDs
 }
 
-// SendEncrypted text to a room
-func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
+// format content to support plain text & html format
+func formatContent(text string) event.MessageEventContent {
 	content := event.MessageEventContent{
 		MsgType: "m.notice",
 		Body:    text,
 	}
+	content.FormattedBody = strings.ReplaceAll(content.Body, "\n", "<br/>")
+	content.Format = event.FormatHTML
+	return content
+}
+
+// SendEncrypted text to a room
+func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
+	content := formatContent(text)
+	log.Debug().Msgf("Message content: %v", content)
 	rm := toRoomID(t.Client, room)
 	encrypted, err := t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
 	// These three errors mean we have to make a new Megolm session
