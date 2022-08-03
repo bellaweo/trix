@@ -18,4 +18,4 @@ ver19:
 
 all:
   BUILD +ver18
-  #BUILD +ver19
+  BUILD +ver19
