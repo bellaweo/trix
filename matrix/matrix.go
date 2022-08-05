@@ -95,7 +95,7 @@ func (t *MaTrix) MaLogout() *mautrix.RespLogout {
 
 // return a random string of fixed length characters
 func randString(length int) string {
-	var sRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var sRand = rand.New(rand.NewSource(time.Now().UnixNano())) //#nosec G404 -- TODO: replace math/rand with crypto/rand
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 	ran := make([]rune, length)

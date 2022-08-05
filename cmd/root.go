@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -29,7 +31,11 @@ var (
 		Short: "matrix cli",
 		Long:  "a matrix cli for performing one-off tasks.",
 		PreRun: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+			err := cmd.Help()
+			if err != nil {
+				log.Error().Stack().Err(err).Msg("Cannot execute help menu")
+			}
 			os.Exit(0)
 		},
 	}
@@ -47,15 +53,30 @@ func init() {
 	viper.SetEnvPrefix("TRIX")
 	viper.AutomaticEnv()
 	rootCmd.PersistentFlags().StringVarP(&root.User, "user", "u", viper.GetString("user"), "matrix username. (env var TRIX_USER.)")
-	viper.BindPFlag("user", rootCmd.PersistentFlags().Lookup("user"))
+	err := viper.BindPFlag("user", rootCmd.PersistentFlags().Lookup("user"))
+	if err != nil {
+		log.Error().Stack().Err(err).Msg("Cannot bind trix user flag")
+	}
 	rootCmd.PersistentFlags().StringVarP(&root.Pass, "pass", "p", viper.GetString("pass"), "matrix password. (env var TRIX_PASS.)")
-	viper.BindPFlag("pass", rootCmd.PersistentFlags().Lookup("pass"))
+	err = viper.BindPFlag("pass", rootCmd.PersistentFlags().Lookup("pass"))
+	if err != nil {
+		log.Error().Stack().Err(err).Msg("Cannot bind trix pass flag")
+	}
 	rootCmd.PersistentFlags().StringVarP(&root.Host, "host", "o", viper.GetString("host"), "matrix hostname. (env var TRIX_HOST.)")
-	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
+	err = viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
+	if err != nil {
+		log.Error().Stack().Err(err).Msg("Cannot bind trix host flag")
+	}
 	rootCmd.PersistentFlags().StringVarP(&root.Room, "room", "r", viper.GetString("room"), "matrix roomid or alias. (env var TRIX_ROOM.)")
-	viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
+	err = viper.BindPFlag("room", rootCmd.PersistentFlags().Lookup("room"))
+	if err != nil {
+		log.Error().Stack().Err(err).Msg("Cannot bind trix room flag")
+	}
 	rootCmd.PersistentFlags().BoolVarP(&debug, "verbose", "v", false, "enable verbose mode.")
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	err = viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	if err != nil {
+		log.Error().Stack().Err(err).Msg("Cannot bind trix verbose flag")
+	}
 }
 
 func validateHost(host string) string {

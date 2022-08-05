@@ -1,6 +1,11 @@
+workspace:
+  base: /src
+  path: codeberg.org/meh/trix
+
 pipeline:
 
-  test:
+  build:
+    group: test
     image: betch/godnd:1.18
     commands:
       - apt update
@@ -8,20 +13,15 @@ pipeline:
       - go mod download
       - go build -o trix
       - DEBUG=false go test -v
-    when:
-      event: pull_request
 
-  main:
+  sec:
+    group: test
     image: betch/godnd:1.18
     commands:
-      - apt update
-      - apt install -y build-essential libolm-dev sqlite3
-      - go mod download
-      - go build -o trix
-      - DEBUG=false go test -v
-    when:
-      event: push
-      branch: main
+      - curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b /bin
+      - go get github.com/securego/gosec/v2/cmd/tlsconfig/...
+      - go generate /src/codeberg.org/meh/trix/...
+      - /bin/gosec /src/codeberg.org/meh/trix/...
 
   mirror:
     image: betch/godnd:1.18

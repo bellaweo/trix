@@ -17,6 +17,14 @@ build:
   RUN go build -o trix
   SAVE ARTIFACT trix AS LOCAL build/trix
 
+sec:
+  FROM +deps
+  WITH DOCKER --pull securego/gosec:latest
+    RUN go get github.com/securego/gosec/v2/cmd/tlsconfig/... && \
+      go generate /build/... && \
+      docker run --rm -w /trix/ -v /build:/trix securego/gosec:latest /trix/...
+  END
+
 test:
   FROM +deps
   ARG DEBUG=false
@@ -28,5 +36,6 @@ test:
   END
 
 all:
+  BUILD +sec
   BUILD +build
   BUILD +test

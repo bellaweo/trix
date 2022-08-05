@@ -28,7 +28,10 @@ var (
 			// validate flags & values
 			t := root.rootVarsPresent()
 			if len(t) > 0 {
-				cmd.Help()
+				err := cmd.Help()
+				if err != nil {
+					log.Error().Stack().Err(err).Msg("Cannot execute help menu")
+				}
 				fmt.Printf("%s\n", t)
 				os.Exit(1)
 			}
@@ -79,7 +82,10 @@ var (
 func init() {
 
 	out.Flags().StringVarP(&text, "text", "t", "", "text to send to the matrix room")
-	out.MarkFlagRequired("text")
+	err := out.MarkFlagRequired("text")
+	if err != nil {
+		log.Error().Stack().Err(err).Msg("Cannot bind trix text flag")
+	}
 
 	rootCmd.AddCommand(out)
 }
