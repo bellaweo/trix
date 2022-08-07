@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM betch/godnd:1.18
+FROM betch/godnd:1.19
 ARG VER=$(curl -fsSL https://api.github.com/repos/matrix-org/synapse/releases/latest | jq -r '.tag_name')
 
 init:
@@ -18,6 +18,15 @@ build:
   SAVE IMAGE --push docker.io/betch/trixtest:latest
   SAVE IMAGE --push docker.io/betch/trixtest:${VER}
 
+sec:
+  RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin && \
+     curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+  WITH DOCKER --load docker.io/betch/trixtest:${VER}=+build
+    RUN grype db update && syft docker:betch/trixtest:${VER} -o json=trixtest.json && \
+      grype sbom:./trixtest.json --add-cpes-if-none --distro debian:11 --only-fixed --fail-on critical --scope all-layers
+  END
+
 all:
   BUILD +init
   BUILD +build
+  BUILD +sec

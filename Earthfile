@@ -36,6 +36,6 @@ test:
   END
 
 all:
-  BUILD +sec
   BUILD +build
   BUILD +test
+  BUILD +sec

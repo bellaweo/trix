@@ -10,6 +10,7 @@
 
 # But not these files...
 !/.gitignore
+!/.go-version
 
 !*.go
 !go.sum
