@@ -18,7 +18,7 @@ sec:
      curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
   WITH DOCKER --load docker.io/betch/godnd:${VER}=+build
     RUN grype db update && syft docker:betch/godnd:${VER} -o json=godnd.json && \
-      grype sbom:./godnd.json --add-cpes-if-none --distro debian:11 --only-fixed --fail-on critical
+      grype sbom:./godnd.json --scope all-layers --add-cpes-if-none --distro debian:11 --only-fixed --fail-on critical
   END
 
 ver18:

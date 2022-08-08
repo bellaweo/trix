@@ -23,7 +23,7 @@ sec:
      curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
   WITH DOCKER --load docker.io/betch/trixtest:${VER}=+build
     RUN grype db update && syft docker:betch/trixtest:${VER} -o json=trixtest.json && \
-      grype sbom:./trixtest.json --add-cpes-if-none --distro debian:11 --only-fixed --fail-on critical --scope all-layers
+      grype sbom:./trixtest.json --scope all-layers --add-cpes-if-none --distro debian:11 --only-fixed --fail-on critical
   END
 
 all:
