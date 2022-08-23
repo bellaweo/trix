@@ -8,6 +8,8 @@ The cli is desigend to be mostly self-documenting. To see the cmd line options, 
 
 Currently, the cli supports sending encrypted messages to a matrix room. The user needs to already exist on the matrix host and needs permission to join the the matrix room. The primary use-case for this project is in scripts to send notifications to a matrix room.
 
+Current releases in this repo are verified to work on debian/ubuntu flavor linux hosts. The libolm C libraries must be installed onto the host to support matrix encryption. I haven't tested this on other linux falvors or macos yet.
+
 # development
 
 An integration test suite exists in this repo which is managed by [Earthly](https://earthly.dev). Once you have earthly installed, the Earthfile in the root of the repo has a +test target which bootstraps an isolated matrix server and tests the trix binary against it.
