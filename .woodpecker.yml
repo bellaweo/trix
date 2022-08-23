@@ -36,6 +36,19 @@ pipeline:
       event: push
       branch: main
 
+  release:
+    image: plugins/gitea-release
+    settings:
+      api_key:
+        from_secret: release_token
+      base_url: https://codeberg.org
+      files: trix
+      file_exist: fail
+      checksum: sha256
+    when:
+      event: tag
+      tag: v*
+
 services:
   trix.meh:
     image: betch/trixtest:latest
