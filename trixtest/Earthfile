@@ -14,7 +14,7 @@ init:
 build:
   FROM matrixdotorg/synapse:${VER}
   COPY +init/* /data/
-  RUN cd / && chown -R 991:991 /data
+  RUN cd / && chown -R 991:991 /data && apt update && apt upgrade -y
   SAVE IMAGE --push docker.io/betch/trixtest:latest
   SAVE IMAGE --push docker.io/betch/trixtest:${VER}
 
