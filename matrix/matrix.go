@@ -17,9 +17,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
+	"maunium.net/go/mautrix/crypto/sql_store_upgrade"
 	"maunium.net/go/mautrix/crypto/ssss"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/util/dbutil"
 )
 
 // MaTrix struct to hold our objects
@@ -156,7 +158,6 @@ func (f fakeLogger) Warn(message string, args ...interface{}) {
 
 func (f fakeLogger) Debug(message string, args ...interface{}) {
 	log.Debug().Msgf(message, args...)
-
 }
 
 func (f fakeLogger) Trace(message string, args ...interface{}) {
@@ -182,17 +183,26 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	if err != nil {
 		log.Error().Stack().Err(err).Msgf("Open sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
-	acct := toAccount(user, host)
-	pickleKey := []byte("trix_is_for_kids")
-	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
-	err = t.DBstore.CreateTables()
+	err = sql_store_upgrade.Upgrade(t.db, "sqlite3")
 	if err != nil {
-		log.Error().Stack().Err(err).Msgf("Create sql crypto db tables ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
+		log.Error().Stack().Err(err).Msgf("Upgrade sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
+	mauxdb, err := dbutil.NewWithDB(t.db, "sqlite3")
+	if err != nil {
+		log.Error().Stack().Err(err).Msgf("Create maux db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
+	}
+	acct := toAccount(user, host)
+	dblog := dbutil.ZeroLogger(log.Logger)
+	pickleKey := []byte("trix_is_for_kids")
+	t.DBstore = crypto.NewSQLCryptoStore(mauxdb, dblog, acct, t.Client.DeviceID, pickleKey)
+	//	err = t.DBstore.CreateTables()
+	//	if err != nil {
+	//		log.Error().Stack().Err(err).Msgf("Create sql crypto db tables ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
+	//	}
 	// create the olm machine
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
-	t.Olm.AllowUnverifiedDevices = true
-	t.Olm.ShareKeysToUnverifiedDevices = false
+	//	t.Olm.AllowUnverifiedDevices = true
+	//	t.Olm.ShareKeysToUnverifiedDevices = false
 	// check if SSSS keys already exist for this user. if not, generate & upload
 	key, err := t.Olm.SSSS.GetDefaultKeyID()
 	if err != nil && err != ssss.ErrNoDefaultKeyAccountDataEvent {
@@ -211,7 +221,7 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	}
 }
 
-//MaDBclose delete matrix SQL cryptostore
+// MaDBclose delete matrix SQL cryptostore
 func (t *MaTrix) MaDBclose() {
 	err := t.db.Close()
 	if err != nil {
