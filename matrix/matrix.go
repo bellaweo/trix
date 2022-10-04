@@ -13,7 +13,6 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // sqlite db driver
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
@@ -134,22 +133,7 @@ type fakeLogger struct{}
 var _ crypto.Logger = &fakeLogger{}
 
 func (f fakeLogger) Error(message string, args ...interface{}) {
-	warn, err := zerolog.ParseLevel("warn")
-	if err != nil {
-		log.Error().Stack().Err(err).Msg("Parse zerolog warn level")
-	}
-	info, err := zerolog.ParseLevel("info")
-	if err != nil {
-		log.Error().Stack().Err(err).Msg("Parse zerolog info level")
-	}
-	if strings.HasPrefix(message, "Error while verifying cross-signing keys") {
-		if zerolog.GlobalLevel() == warn || zerolog.GlobalLevel() == info {
-			return
-		}
-		log.Error().Stack().Msgf(message, args...)
-	} else {
-		log.Error().Stack().Msgf(message, args...)
-	}
+	log.Error().Stack().Msgf(message, args...)
 }
 
 func (f fakeLogger) Warn(message string, args ...interface{}) {
@@ -168,7 +152,7 @@ func (f fakeLogger) Trace(message string, args ...interface{}) {
 func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	// create the sql cryptostore (sqlite)
 	t.file = fmt.Sprintf("trix.%s", randString(4))
-	log.Debug().Msgf("SQL cryptostore db file for user %s: %v", user, t.file)
+	log.Debug().Msgf("SQL cryptostore db file for user %s: %s", user, t.file)
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
 		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
 		if err != nil {
@@ -195,14 +179,8 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	dblog := dbutil.ZeroLogger(log.Logger)
 	pickleKey := []byte("trix_is_for_kids")
 	t.DBstore = crypto.NewSQLCryptoStore(mauxdb, dblog, acct, t.Client.DeviceID, pickleKey)
-	//	err = t.DBstore.CreateTables()
-	//	if err != nil {
-	//		log.Error().Stack().Err(err).Msgf("Create sql crypto db tables ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
-	//	}
 	// create the olm machine
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
-	//	t.Olm.AllowUnverifiedDevices = true
-	//	t.Olm.ShareKeysToUnverifiedDevices = false
 	// check if SSSS keys already exist for this user. if not, generate & upload
 	key, err := t.Olm.SSSS.GetDefaultKeyID()
 	if err != nil && err != ssss.ErrNoDefaultKeyAccountDataEvent {
