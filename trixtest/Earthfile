@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM betch/godnd:1.19
+FROM betch/godnd:1.20
 ARG VER=$(curl -fsSL https://api.github.com/repos/matrix-org/synapse/releases/latest | jq -r '.tag_name')
 
 init:

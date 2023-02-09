@@ -29,6 +29,11 @@ ver19:
   BUILD +build --VER=1.19
   BUILD +sec --VER=1.19
 
+ver20:
+  BUILD +build --VER=1.20
+  BUILD +sec --VER=1.20
+
 all:
   BUILD +ver18
   BUILD +ver19
+  BUILD +ver20
