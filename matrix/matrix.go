@@ -13,13 +13,14 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3" // sqlite db driver
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
+	"maunium.net/go/mautrix/crypto/sql_store_upgrade"
 	"maunium.net/go/mautrix/crypto/ssss"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
+	"maunium.net/go/mautrix/util/dbutil"
 )
 
 // MaTrix struct to hold our objects
@@ -132,22 +133,7 @@ type fakeLogger struct{}
 var _ crypto.Logger = &fakeLogger{}
 
 func (f fakeLogger) Error(message string, args ...interface{}) {
-	warn, err := zerolog.ParseLevel("warn")
-	if err != nil {
-		log.Error().Stack().Err(err).Msg("Parse zerolog warn level")
-	}
-	info, err := zerolog.ParseLevel("info")
-	if err != nil {
-		log.Error().Stack().Err(err).Msg("Parse zerolog info level")
-	}
-	if strings.HasPrefix(message, "Error while verifying cross-signing keys") {
-		if zerolog.GlobalLevel() == warn || zerolog.GlobalLevel() == info {
-			return
-		}
-		log.Error().Stack().Msgf(message, args...)
-	} else {
-		log.Error().Stack().Msgf(message, args...)
-	}
+	log.Error().Stack().Msgf(message, args...)
 }
 
 func (f fakeLogger) Warn(message string, args ...interface{}) {
@@ -156,7 +142,6 @@ func (f fakeLogger) Warn(message string, args ...interface{}) {
 
 func (f fakeLogger) Debug(message string, args ...interface{}) {
 	log.Debug().Msgf(message, args...)
-
 }
 
 func (f fakeLogger) Trace(message string, args ...interface{}) {
@@ -167,7 +152,7 @@ func (f fakeLogger) Trace(message string, args ...interface{}) {
 func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	// create the sql cryptostore (sqlite)
 	t.file = fmt.Sprintf("trix.%s", randString(4))
-	log.Debug().Msgf("SQL cryptostore db file for user %s: %v", user, t.file)
+	log.Debug().Msgf("SQL cryptostore db file for user %s: %s", user, t.file)
 	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), "tmp")); os.IsNotExist(err) {
 		err := os.Mkdir(filepath.Join(os.Getenv("HOME"), "tmp"), os.ModeDir)
 		if err != nil {
@@ -182,17 +167,20 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	if err != nil {
 		log.Error().Stack().Err(err).Msgf("Open sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
-	acct := toAccount(user, host)
-	pickleKey := []byte("trix_is_for_kids")
-	t.DBstore = crypto.NewSQLCryptoStore(t.db, "sqlite3", acct, t.Client.DeviceID, pickleKey, &fakeLogger{})
-	err = t.DBstore.CreateTables()
+	err = sql_store_upgrade.Upgrade(t.db, "sqlite3")
 	if err != nil {
-		log.Error().Stack().Err(err).Msgf("Create sql crypto db tables ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
+		log.Error().Stack().Err(err).Msgf("Upgrade sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
+	mauxdb, err := dbutil.NewWithDB(t.db, "sqlite3")
+	if err != nil {
+		log.Error().Stack().Err(err).Msgf("Create maux db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
+	}
+	acct := toAccount(user, host)
+	dblog := dbutil.ZeroLogger(log.Logger)
+	pickleKey := []byte("trix_is_for_kids")
+	t.DBstore = crypto.NewSQLCryptoStore(mauxdb, dblog, acct, t.Client.DeviceID, pickleKey)
 	// create the olm machine
 	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
-	t.Olm.AllowUnverifiedDevices = true
-	t.Olm.ShareKeysToUnverifiedDevices = false
 	// check if SSSS keys already exist for this user. if not, generate & upload
 	key, err := t.Olm.SSSS.GetDefaultKeyID()
 	if err != nil && err != ssss.ErrNoDefaultKeyAccountDataEvent {
@@ -211,7 +199,7 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	}
 }
 
-//MaDBclose delete matrix SQL cryptostore
+// MaDBclose delete matrix SQL cryptostore
 func (t *MaTrix) MaDBclose() {
 	err := t.db.Close()
 	if err != nil {
