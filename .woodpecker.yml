@@ -6,7 +6,7 @@ pipeline:
 
   build:
     group: test
-    image: betch/godnd:1.18
+    image: betch/godnd:1.19
     commands:
       - apt update
       - apt install -y build-essential libolm-dev sqlite3
@@ -16,7 +16,7 @@ pipeline:
 
   sec:
     group: test
-    image: betch/godnd:1.18
+    image: betch/godnd:1.19
     commands:
       - curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b /bin
       - go get github.com/securego/gosec/v2/cmd/tlsconfig/...
@@ -24,7 +24,7 @@ pipeline:
       - /bin/gosec /src/codeberg.org/meh/trix/...
 
   mirror:
-    image: betch/godnd:1.18
+    image: betch/godnd:1.19
     secrets: [ github_user, github_pass ]
     commands:
       - mkdir github_mirror
