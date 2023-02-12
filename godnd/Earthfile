@@ -1,39 +1,44 @@
 VERSION 0.6
 ARG VER
 
-build:
+deps:
   FROM golang:${VER}-bullseye
-  WORKDIR /build
   RUN echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" > /etc/apt/sources.list.d/bullseye-backports.list && \
     echo "deb-src http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list.d/bullseye-backports.list && \
-    apt update && apt upgrade -y && apt install -y jq && \
+    apt update && apt upgrade -y && apt install -y curl jq && \
     REL=$(curl -fsSL https://api.github.com/repos/earthly/earthly/releases/latest | jq -r '.tag_name') && \
     curl -o dockerd-install.sh -fsSL https://raw.githubusercontent.com/earthly/earthly/${REL}/buildkitd/docker-auto-install.sh && \
     chmod 755 dockerd-install.sh && ./dockerd-install.sh && apt -t bullseye-backports upgrade -y && cd /usr/local/go/src/cmd/ && go get -u ./...
+
+docker:
+  FROM +deps
+  WORKDIR /build
   SAVE IMAGE --push docker.io/betch/godnd:${VER}
 
 sec:
-  FROM +build
-  RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin && \
-     curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-  WITH DOCKER --load docker.io/betch/godnd:${VER}=+build
-    RUN grype db update && syft docker:betch/godnd:${VER} -o json=godnd.json && \
-      grype sbom:./godnd.json --scope all-layers --add-cpes-if-none --distro debian:11 --only-fixed --fail-on critical
+  FROM +deps
+  RUN YREL=$(curl -fsSL https://api.github.com/repos/anchore/syft/releases/latest | jq -r '.tag_name') && pre_YREL=$(echo $YREL | sed 's/^v//') && \
+    curl -fsSL -o ./syft_"${pre_YREL}"_linux_amd64.tar.gz https://github.com/anchore/syft/releases/download/"${YREL}"/syft_"${pre_YREL}"_linux_amd64.tar.gz && \
+    curl -fsSL -o ./syft_checksums.txt https://github.com/anchore/syft/releases/download/"${YREL}"/syft_"${pre_YREL}"_checksums.txt && \
+    sha256sum -c --ignore-missing --strict syft_checksums.txt && tar -xvf syft_"${pre_YREL}"_linux_amd64.tar.gz syft && chmod 755 syft
+  RUN OREL=$(curl -fsSL https://api.github.com/repos/google/osv-scanner/releases/latest | jq -r '.tag_name') && pre_OREL=$(echo $OREL | sed 's/^v//') && \
+    curl -fsSL -o ./osv-scanner_"${pre_OREL}"_linux_amd64 https://github.com/google/osv-scanner/releases/download/"${OREL}"/osv-scanner_"${pre_OREL}"_linux_amd64 && \
+    curl -fsSL -o ./osv-scanner_SHA256SUMS https://github.com/google/osv-scanner/releases/download/"${OREL}"/osv-scanner_"${pre_OREL}"_SHA256SUMS && \
+    sha256sum -c --ignore-missing --strict osv-scanner_SHA256SUMS && mv osv-scanner_"${pre_OREL}"_linux_amd64 osv-scanner && chmod 755 osv-scanner
+  COPY osv-scanner_${VER}_.toml osv-scanner.toml
+  WITH DOCKER --load test:latest=+docker
+    RUN ./syft packages test:latest -o cyclonedx-json > result.sbom && ./osv-scanner --sbom=result.sbom
   END
 
-ver18:
-  BUILD +build --VER=1.18
-  BUILD +sec --VER=1.18
-
 ver19:
-  BUILD +build --VER=1.19
+  BUILD +docker --VER=1.19
   BUILD +sec --VER=1.19
 
 ver20:
-  BUILD +build --VER=1.20
+  BUILD +docker --VER=1.20
   BUILD +sec --VER=1.20
 
 all:
-  BUILD +ver18
   BUILD +ver19
   BUILD +ver20
+

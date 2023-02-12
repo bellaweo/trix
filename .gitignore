@@ -25,6 +25,8 @@
 !docker-compose.yaml
 !.woodpecker.yml
 
+!osv-scanner_*_.toml
+
 !.envrc
 
 # ...even if they are in subdirectories
