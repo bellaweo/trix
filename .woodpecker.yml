@@ -9,7 +9,7 @@ pipeline:
     image: betch/godnd:1.20
     commands:
       - apt update
-      - apt install -y build-essential libolm-dev sqlite3
+      - apt install -y git build-essential libolm-dev sqlite3
       - go mod download
       - go build -ldflags "-X codeberg.org/meh/trix/cmd.version=$(git describe --tags $(git rev-list --tags --max-count=1) | sed 's/v//')" -o trix
       - DEBUG=false go test -v
