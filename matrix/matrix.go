@@ -2,6 +2,7 @@
 package matrix
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math/rand"
@@ -16,7 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
-	"maunium.net/go/mautrix/crypto/sql_store_upgrade"
 	"maunium.net/go/mautrix/crypto/ssss"
 	"maunium.net/go/mautrix/event"
 	"maunium.net/go/mautrix/id"
@@ -127,27 +127,6 @@ func (fss *fakeStateStore) FindSharedRooms(userID id.UserID) []id.RoomID {
 	return []id.RoomID{}
 }
 
-// crypto.Logger implementation that logs to zerolog
-type fakeLogger struct{}
-
-var _ crypto.Logger = &fakeLogger{}
-
-func (f fakeLogger) Error(message string, args ...interface{}) {
-	log.Error().Stack().Msgf(message, args...)
-}
-
-func (f fakeLogger) Warn(message string, args ...interface{}) {
-	log.Warn().Msgf(message, args...)
-}
-
-func (f fakeLogger) Debug(message string, args ...interface{}) {
-	log.Debug().Msgf(message, args...)
-}
-
-func (f fakeLogger) Trace(message string, args ...interface{}) {
-	log.Trace().Msgf(message, args...)
-}
-
 // MaUserEnc create matrix SQL cryptostorea & user olm machine
 func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	// create the sql cryptostore (sqlite)
@@ -167,10 +146,6 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	if err != nil {
 		log.Error().Stack().Err(err).Msgf("Open sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
 	}
-	err = sql_store_upgrade.Upgrade(t.db, "sqlite3")
-	if err != nil {
-		log.Error().Stack().Err(err).Msgf("Upgrade sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
-	}
 	mauxdb, err := dbutil.NewWithDB(t.db, "sqlite3")
 	if err != nil {
 		log.Error().Stack().Err(err).Msgf("Create maux db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
@@ -179,8 +154,12 @@ func (t *MaTrix) MaUserEnc(user string, pass string, host string) {
 	dblog := dbutil.ZeroLogger(log.Logger)
 	pickleKey := []byte("trix_is_for_kids")
 	t.DBstore = crypto.NewSQLCryptoStore(mauxdb, dblog, acct, t.Client.DeviceID, pickleKey)
+	err = t.DBstore.DB.Upgrade()
+	if err != nil {
+		log.Error().Stack().Err(err).Msgf("Upgrade sql crypto db ~/tmp/%s for user %s", t.file, string(t.Client.UserID))
+	}
 	// create the olm machine
-	t.Olm = crypto.NewOlmMachine(t.Client, &fakeLogger{}, t.DBstore, &fakeStateStore{})
+	t.Olm = crypto.NewOlmMachine(t.Client, &log.Logger, t.DBstore, &fakeStateStore{})
 	// check if SSSS keys already exist for this user. if not, generate & upload
 	key, err := t.Olm.SSSS.GetDefaultKeyID()
 	if err != nil && err != ssss.ErrNoDefaultKeyAccountDataEvent {
@@ -244,14 +223,14 @@ func (t *MaTrix) SendEncrypted(room string, text string) id.EventID {
 	content := formatContent(text)
 	log.Debug().Msgf("Message content: %v", content)
 	rm := toRoomID(t.Client, room)
-	encrypted, err := t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
+	encrypted, err := t.Olm.EncryptMegolmEvent(context.Background(), rm, event.EventMessage, content)
 	// These three errors mean we have to make a new Megolm session
 	if err == crypto.SessionExpired || err == crypto.SessionNotShared || err == crypto.NoGroupSession {
-		err = t.Olm.ShareGroupSession(rm, getUserIDs(t.Client, rm))
+		err = t.Olm.ShareGroupSession(context.Background(), rm, getUserIDs(t.Client, rm))
 		if err != nil {
 			log.Error().Stack().Err(err).Msgf("Share group session to room %s", string(rm))
 		}
-		encrypted, err = t.Olm.EncryptMegolmEvent(rm, event.EventMessage, content)
+		encrypted, err = t.Olm.EncryptMegolmEvent(context.Background(), rm, event.EventMessage, content)
 		if err != nil {
 			log.Error().Stack().Err(err).Msgf("Encrypt message to room %s", rm)
 		}

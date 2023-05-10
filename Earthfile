@@ -1,5 +1,5 @@
-VERSION --use-host-command 0.6
-FROM betch/godnd:1.19
+VERSION 0.7
+FROM betch/godnd:1.20
 HOST trix.meh 127.0.0.1
 WORKDIR /build
 

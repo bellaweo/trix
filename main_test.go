@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -83,14 +84,14 @@ func setUp() {
 		return true
 	})
 	trixSyncer.OnEventType(event.StateMember, func(source mautrix.EventSource, evt *event.Event) {
-		self.Olm.HandleMemberEvent(evt)
+		self.Olm.HandleMemberEvent(1, evt)
 	})
 	trixSyncer.OnEventType(event.EventEncrypted, func(source mautrix.EventSource, evt *event.Event) {
 		if evt.Timestamp < start {
 			// Ignore events from before the program started
 			return
 		}
-		decrypted, err := self.Olm.DecryptMegolmEvent(evt)
+		decrypted, err := self.Olm.DecryptMegolmEvent(context.Background(), evt)
 		if err != nil {
 			log.Error().Stack().Err(err).Msg("Decrypt message")
 		} else {
@@ -117,7 +118,7 @@ func tearDown() {
 	self.MaDBclose()
 }
 
-//  write an encrypted text message
+// write an encrypted text message
 func TestWriteEncText(t *testing.T) {
 
 	text := "the rain in spain falls mainly on the plain"
@@ -138,7 +139,7 @@ func TestWriteEncText(t *testing.T) {
 	}
 }
 
-//  write an encrypted html formatted text message
+// write an encrypted html formatted text message
 func TestWriteEncFormatted(t *testing.T) {
 
 	text := `i love html.
