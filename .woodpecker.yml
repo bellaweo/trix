@@ -11,7 +11,7 @@ pipeline:
       - apt update
       - apt install -y build-essential libolm-dev sqlite3
       - go mod download
-      - go build -o trix
+      - go build -ldflags "-X codeberg.org/meh/trix/cmd.version=$(git describe --tags $(git rev-list --tags --max-count=1) | sed 's/v//')" -o trix
       - DEBUG=false go test -v
 
   sec:
@@ -25,8 +25,10 @@ pipeline:
 
   mirror:
     image: betch/godnd:1.20
-    secrets: [ github_user, github_pass ]
+    secrets: [github_user, github_pass]
     commands:
+      - apt update
+      - apt install -y git
       - mkdir github_mirror
       - cd github_mirror
       - git clone --bare https://codeberg.org/meh/trix.git

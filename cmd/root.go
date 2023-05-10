@@ -14,16 +14,18 @@ import (
 )
 
 var (
-	maUser string
-	maPass string
-	maHost string
-	maRoom string
-	debug  bool
+	maUser  string
+	maPass  string
+	maHost  string
+	maRoom  string
+	debug   bool
+	version string
 
 	rootCmd = &cobra.Command{
-		Use:   "trix",
-		Short: "matrix cli",
-		Long:  "a matrix cli for performing one-off tasks.",
+		Use:     "trix",
+		Version: version,
+		Short:   "matrix cli",
+		Long:    "a matrix cli for performing one-off tasks.",
 		PreRun: func(cmd *cobra.Command, args []string) {
 			zerolog.SetGlobalLevel(zerolog.WarnLevel)
 			err := cmd.Help()
