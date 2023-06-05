@@ -18,11 +18,8 @@ The Earthfile +all target will build the trix binary, run the integration tests,
 
 Tests can be run in debug mode by providing the DEBUG ARG to the earthly command. For example, `earthly --build-arg DEBUG=true +all`
 
-# Give Up GitHub
-
-This project has given up GitHub.  ([See Software Freedom Conservancy's *Give Up  GitHub* site for details](https://GiveUpGitHub.org).)
+# mirrored to github
 
 This project is mirrored to GitHub. It is actually located at  [Codeberg](https://codeberg.org/meh/trix).
 
-Any use of this project's code by GitHub Copilot, past or present, is done without our permission.  We do not consent to GitHub's use of this project's code in Copilot.
-
+Any use of this project's code by GitHub Copilot, past or present, is done without our permission: GiveUpGitHub.org.
